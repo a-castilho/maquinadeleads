@@ -65,6 +65,19 @@ return out;
       parameters: { rule: { interval: [{ field: 'hours', hoursInterval: scheduleHours }] } },
     },
     {
+      id: 'webhook',
+      name: 'Webhook',
+      type: 'n8n-nodes-base.webhook',
+      typeVersion: 1,
+      position: [0, 150],
+      parameters: {
+        httpMethod: 'GET',
+        path: `envio-${nicheId}`,
+        responseMode: 'onReceived',
+        options: {}
+      },
+    },
+    {
       id: 'puxa',
       name: 'Puxa Leads Pendentes',
       type: 'n8n-nodes-base.postgres',
@@ -134,6 +147,7 @@ return out;
 
   const connections = {
     'Schedule Trigger': { main: [[{ node: 'Puxa Leads Pendentes', type: 'main', index: 0 }]] },
+    'Webhook': { main: [[{ node: 'Puxa Leads Pendentes', type: 'main', index: 0 }]] },
     'Puxa Leads Pendentes': { main: [[{ node: 'formataCel', type: 'main', index: 0 }]] },
     'formataCel': { main: [[{ node: 'Envia WhatsApp', type: 'main', index: 0 }]] },
     'Envia WhatsApp': {

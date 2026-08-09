@@ -235,6 +235,19 @@ function buildScrapingWorkflow(config) {
       parameters: { rule: { interval: [{ field: 'hours', hoursInterval: scheduleHours }] } },
     },
     {
+      id: 'webhook',
+      name: 'Webhook',
+      type: 'n8n-nodes-base.webhook',
+      typeVersion: 1,
+      position: [0, 150],
+      parameters: {
+        httpMethod: 'GET',
+        path: `raspagem-${nicheId}`,
+        responseMode: 'onReceived',
+        options: {}
+      },
+    },
+    {
       id: 'gera_queries',
       name: 'Gera Queries de Busca',
       type: 'n8n-nodes-base.code',
@@ -315,6 +328,7 @@ function buildScrapingWorkflow(config) {
 
   const connections = {
     'Schedule Trigger': { main: [[{ node: 'Gera Queries de Busca', type: 'main', index: 0 }]] },
+    'Webhook': { main: [[{ node: 'Gera Queries de Busca', type: 'main', index: 0 }]] },
     'Gera Queries de Busca': { 
       main: [
         [
