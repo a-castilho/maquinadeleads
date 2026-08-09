@@ -19,6 +19,7 @@ async function loadNicheConfig(nicheId) {
   const creds = (await db.query('SELECT * FROM credentials WHERE niche_id = $1', [nicheId])).rows;
 
   const credByProvider = Object.fromEntries(creds.map((c) => [c.provider, c]));
+
   return { niche, keywords, contextTerms, template, credByProvider };
 }
 
@@ -26,12 +27,40 @@ function resolvePostgresCredentialId(pgCred) {
   return pgCred?.extra_config?.n8nCredentialId || null;
 }
 
+function buildWebhookPath(agentType, nicheId) {
+  return `${agentType}-${nicheId}`;
+}
+
+function buildWebhookUrl(webhookPath) {
+  const base = (process.env.N8N_BASE_URL || '').replace(/\/$/, '');
+  return `${base}/webhook/${webhookPath}`;
+}
+
+/**
+ * Depois de criar/atualizar o workflow, garante que ele fica ATIVO
+ * (necessario para o webhook de producao responder) e dispara uma
+ * execucao imediata via webhook. Falhas aqui nao derrubam a resposta
+ * principal - sao best-effort.
+ */
+async function activateAndTrigger(workflowId, webhookUrl) {
+  try {
+    await n8nService.setActive(workflowId, true);
+  } catch (err) {
+    console.warn('Aviso: nao foi possivel ativar o workflow:', err.message);
+  }
+  try {
+    await n8nService.triggerWebhook(webhookUrl);
+  } catch (err) {
+    console.warn('Aviso: nao foi possivel disparar a execucao imediata via webhook:', err.message);
+  }
+}
+
 async function createOrUpdateAgent(req, res) {
   const { nicheId } = req.params;
   const { agentType } = req.body;
 
   if (!(await assertNicheOwnership(nicheId, req.user.sub))) {
-    return res.status(403).json({ error: 'Acesso negado a este nicho.' });
+    return res.status(404).json({ error: 'Nicho não encontrado.' });
   }
   if (!['raspagem', 'envio'].includes(agentType)) {
     return res.status(400).json({ error: 'agentType deve ser "raspagem" ou "envio".' });
@@ -40,35 +69,30 @@ async function createOrUpdateAgent(req, res) {
   try {
     const { niche, keywords, contextTerms, template, credByProvider } = await loadNicheConfig(nicheId);
 
-    // Verifica credenciais com mensagens amigaveis
+    if (agentType === 'raspagem' && keywords.length === 0) {
+      return res.status(400).json({ error: 'Cadastre ao menos uma palavra-chave antes de criar o agente de raspagem.' });
+    }
+    if (agentType === 'envio' && !template) {
+      return res.status(400).json({ error: 'Cadastre um template de mensagem antes de criar o agente de envio.' });
+    }
+
     const pg = credByProvider['postgres_n8n'];
     const postgresCredentialId = resolvePostgresCredentialId(pg);
 
     if (!postgresCredentialId) {
       return res.status(400).json({
-        error: 'Credencial Postgres do n8n nao configurada.',
-        action: 'Va na aba "Credenciais" deste nicho e cadastre a credencial "postgres_n8n" com o n8nCredentialId.',
-        missing: 'postgres_n8n'
+        error: 'Credencial Postgres do n8n não encontrada.',
+        details: 'Cadastre uma credencial "postgres_n8n" com extra_config.n8nCredentialId preenchido.',
       });
     }
 
+    const webhookPath = buildWebhookPath(agentType, nicheId);
+    const webhookUrl = buildWebhookUrl(webhookPath);
+
     let workflowJson;
     if (agentType === 'raspagem') {
-      if (keywords.length === 0) {
-        return res.status(400).json({
-          error: 'Cadastre ao menos uma palavra-chave antes de criar o agente de raspagem.',
-          action: 'Va na aba "Palavras-chave" e adicione termos de busca.'
-        });
-      }
-
       const serper = credByProvider['serper'];
-      if (!serper?.api_key) {
-        return res.status(400).json({
-          error: 'Credencial Serper nao configurada.',
-          action: 'Va na aba "Credenciais" deste nicho e preencha a API key do Serper.',
-          missing: 'serper'
-        });
-      }
+      if (!serper?.api_key) return res.status(400).json({ error: 'Credencial "serper" não configurada para este nicho.' });
 
       workflowJson = buildScrapingWorkflow({
         nicheId,
@@ -77,24 +101,13 @@ async function createOrUpdateAgent(req, res) {
         contextTerms: contextTerms.length ? contextTerms : undefined,
         serperApiKey: serper.api_key,
         postgresCredentialId,
+        webhookPath,
       });
     } else {
-      if (!template) {
-        return res.status(400).json({
-          error: 'Cadastre um template de mensagem antes de criar o agente de envio.',
-          action: 'Va na aba "Mensagem" e crie um template.'
-        });
-      }
-
       const evo = credByProvider['evolution_api'];
       if (!evo?.api_key || !evo?.base_url) {
-        return res.status(400).json({
-          error: 'Credencial Evolution API nao configurada.',
-          action: 'Va na aba "Credenciais" deste nicho e preencha base_url + api_key da Evolution API.',
-          missing: 'evolution_api'
-        });
+        return res.status(400).json({ error: 'Credencial "evolution_api" (base_url + api_key) não configurada para este nicho.' });
       }
-
       workflowJson = buildSendingWorkflow({
         nicheId,
         nicheName: niche.name,
@@ -103,6 +116,7 @@ async function createOrUpdateAgent(req, res) {
         evolutionInstance: evo.extra_config?.instanceName || niche.slug,
         evolutionApiKey: evo.api_key,
         postgresCredentialId,
+        webhookPath,
       });
     }
 
@@ -117,27 +131,20 @@ async function createOrUpdateAgent(req, res) {
       n8nResponse = await n8nService.createWorkflow(workflowJson);
     }
 
-    try {
-      const saved = await db.query(
-        `INSERT INTO n8n_agents (niche_id, agent_type, n8n_workflow_id, active, config_snapshot, last_sync_at)
-         VALUES ($1, $2, $3, false, $4, NOW())
-         ON CONFLICT (niche_id, agent_type)
-         DO UPDATE SET n8n_workflow_id = EXCLUDED.n8n_workflow_id, config_snapshot = EXCLUDED.config_snapshot, last_sync_at = NOW()
-         RETURNING *`,
-        [nicheId, agentType, n8nResponse.id, JSON.stringify(workflowJson)]
-      );
-      res.status(201).json({ agent: saved.rows[0] });
-    } catch (dbErr) {
-      // Rollback: limpa workflow orfao no n8n
-      try {
-        await n8nService.deleteWorkflow(n8nResponse.id);
-      } catch (cleanupErr) {
-        console.error('Falha ao limpar workflow orfao no n8n:', cleanupErr.message);
-      }
-      return res.status(500).json({ error: 'Falha ao salvar agente no banco.', details: dbErr.message });
-    }
+    await activateAndTrigger(n8nResponse.id, webhookUrl);
+
+    const saved = await db.query(
+      `INSERT INTO n8n_agents (niche_id, agent_type, n8n_workflow_id, active, webhook_url, config_snapshot, last_sync_at)
+       VALUES ($1, $2, $3, true, $4, $5, NOW())
+       ON CONFLICT (niche_id, agent_type)
+       DO UPDATE SET n8n_workflow_id = EXCLUDED.n8n_workflow_id, active = true, webhook_url = EXCLUDED.webhook_url, config_snapshot = EXCLUDED.config_snapshot, last_sync_at = NOW()
+       RETURNING *`,
+      [nicheId, agentType, n8nResponse.id, webhookUrl, JSON.stringify(workflowJson)]
+    );
+
+    res.status(201).json({ agent: saved.rows[0] });
   } catch (err) {
-    console.error('[agents.createOrUpdateAgent] Erro:', err.response?.data || err.message);
+    console.error(err.response?.data || err.message);
     res.status(502).json({ error: 'Falha ao criar/atualizar o workflow no n8n.', details: err.response?.data || err.message });
   }
 }
@@ -146,7 +153,7 @@ async function resync(req, res) {
   const { nicheId, id } = req.params;
 
   if (!(await assertNicheOwnership(nicheId, req.user.sub))) {
-    return res.status(403).json({ error: 'Acesso negado a este nicho.' });
+    return res.status(404).json({ error: 'Nicho não encontrado.' });
   }
 
   const agent = (await db.query(
@@ -155,7 +162,7 @@ async function resync(req, res) {
   )).rows[0];
 
   if (!agent) {
-    return res.status(404).json({ error: 'Agente nao encontrado.' });
+    return res.status(404).json({ error: 'Agente não encontrado.' });
   }
 
   try {
@@ -166,21 +173,18 @@ async function resync(req, res) {
 
     if (!postgresCredentialId) {
       return res.status(400).json({
-        error: 'Credencial Postgres do n8n nao encontrada.',
-        action: 'Cadastre uma credencial "postgres_n8n" com extra_config.n8nCredentialId preenchido.',
-        missing: 'postgres_n8n'
+        error: 'Credencial Postgres do n8n não encontrada.',
+        details: 'Cadastre uma credencial "postgres_n8n" com extra_config.n8nCredentialId preenchido.',
       });
     }
+
+    const webhookPath = buildWebhookPath(agent.agent_type, nicheId);
+    const webhookUrl = buildWebhookUrl(webhookPath);
 
     let workflowJson;
     if (agent.agent_type === 'raspagem') {
       const serper = credByProvider['serper'];
-      if (!serper?.api_key) {
-        return res.status(400).json({
-          error: 'Credencial "serper" nao configurada para este nicho.',
-          missing: 'serper'
-        });
-      }
+      if (!serper?.api_key) return res.status(400).json({ error: 'Credencial "serper" não configurada para este nicho.' });
 
       workflowJson = buildScrapingWorkflow({
         nicheId,
@@ -189,14 +193,12 @@ async function resync(req, res) {
         contextTerms: contextTerms.length ? contextTerms : undefined,
         serperApiKey: serper.api_key,
         postgresCredentialId,
+        webhookPath,
       });
     } else {
       const evo = credByProvider['evolution_api'];
       if (!evo?.api_key || !evo?.base_url) {
-        return res.status(400).json({
-          error: 'Credencial "evolution_api" (base_url + api_key) nao configurada para este nicho.',
-          missing: 'evolution_api'
-        });
+        return res.status(400).json({ error: 'Credencial "evolution_api" (base_url + api_key) não configurada para este nicho.' });
       }
 
       workflowJson = buildSendingWorkflow({
@@ -207,6 +209,7 @@ async function resync(req, res) {
         evolutionInstance: evo.extra_config?.instanceName || niche.slug,
         evolutionApiKey: evo.api_key,
         postgresCredentialId,
+        webhookPath,
       });
     }
 
@@ -229,8 +232,7 @@ async function resync(req, res) {
           n8nResponse = await n8nService.updateWorkflow(workflowId, workflowJson);
         }
       } catch (err) {
-        const status = err.response?.status || err.statusCode;
-        if (status === 404) {
+        if (err.response?.status === 404) {
           needsNew = true;
         } else {
           throw err;
@@ -245,19 +247,23 @@ async function resync(req, res) {
       workflowId = n8nResponse.id;
     }
 
+    await activateAndTrigger(workflowId, webhookUrl);
+
     const updated = await db.query(
       `UPDATE n8n_agents
        SET n8n_workflow_id = $1,
-           config_snapshot = $2,
+           active = true,
+           webhook_url = $2,
+           config_snapshot = $3,
            last_sync_at = NOW()
-       WHERE id = $3
+       WHERE id = $4
        RETURNING *`,
-      [workflowId, JSON.stringify(workflowJson), id]
+      [workflowId, webhookUrl, JSON.stringify(workflowJson), id]
     );
 
     res.json({ agent: updated.rows[0] });
   } catch (err) {
-    console.error('[agents.resync] Erro:', err.response?.data || err.message);
+    console.error(err.response?.data || err.message);
     res.status(502).json({
       error: 'Falha ao ressincronizar o workflow no n8n.',
       details: err.response?.data || err.message,
@@ -265,16 +271,45 @@ async function resync(req, res) {
   }
 }
 
-async function toggleActive(req, res) {
+/**
+ * Dispara uma execucao manual do agente, sem esperar o schedule.
+ * Usado pelo botao "Executar agora" no dashboard.
+ */
+async function runNow(req, res) {
   const { nicheId, id } = req.params;
-  const { active } = req.body;
 
   if (!(await assertNicheOwnership(nicheId, req.user.sub))) {
-    return res.status(403).json({ error: 'Acesso negado a este nicho.' });
+    return res.status(404).json({ error: 'Nicho não encontrado.' });
   }
 
   const agent = (await db.query('SELECT * FROM n8n_agents WHERE id = $1 AND niche_id = $2', [id, nicheId])).rows[0];
-  if (!agent) return res.status(404).json({ error: 'Agente nao encontrado.' });
+  if (!agent) return res.status(404).json({ error: 'Agente não encontrado.' });
+
+  if (!agent.webhook_url) {
+    return res.status(400).json({ error: 'Agente sem webhook configurado. Clique em "Ressincronizar" primeiro.' });
+  }
+
+  try {
+    if (!agent.active) {
+      await n8nService.setActive(agent.n8n_workflow_id, true);
+      await db.query('UPDATE n8n_agents SET active = true WHERE id = $1', [id]);
+    }
+    await n8nService.triggerWebhook(agent.webhook_url);
+    res.json({ message: 'Execução disparada com sucesso.' });
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    res.status(502).json({ error: 'Falha ao disparar execução manual.', details: err.response?.data || err.message });
+  }
+}
+
+async function toggleActive(req, res) {
+  const { nicheId, id } = req.params;
+  const { active } = req.body;
+  if (!(await assertNicheOwnership(nicheId, req.user.sub))) {
+    return res.status(404).json({ error: 'Nicho não encontrado.' });
+  }
+  const agent = (await db.query('SELECT * FROM n8n_agents WHERE id = $1 AND niche_id = $2', [id, nicheId])).rows[0];
+  if (!agent) return res.status(404).json({ error: 'Agente não encontrado.' });
 
   try {
     await n8nService.setActive(agent.n8n_workflow_id, !!active);
@@ -284,7 +319,7 @@ async function toggleActive(req, res) {
     );
     res.json({ agent: updated.rows[0] });
   } catch (err) {
-    console.error('[agents.toggleActive] Erro:', err.response?.data || err.message);
+    console.error(err.response?.data || err.message);
     res.status(502).json({ error: 'Falha ao ativar/desativar o workflow no n8n.' });
   }
 }
@@ -292,7 +327,7 @@ async function toggleActive(req, res) {
 async function list(req, res) {
   const { nicheId } = req.params;
   if (!(await assertNicheOwnership(nicheId, req.user.sub))) {
-    return res.status(403).json({ error: 'Acesso negado a este nicho.' });
+    return res.status(404).json({ error: 'Nicho não encontrado.' });
   }
   const result = await db.query('SELECT * FROM n8n_agents WHERE niche_id = $1', [nicheId]);
   res.json({ agents: result.rows });
@@ -301,19 +336,18 @@ async function list(req, res) {
 async function remove(req, res) {
   const { nicheId, id } = req.params;
   if (!(await assertNicheOwnership(nicheId, req.user.sub))) {
-    return res.status(403).json({ error: 'Acesso negado a este nicho.' });
+    return res.status(404).json({ error: 'Nicho não encontrado.' });
   }
-
   const agent = (await db.query('SELECT * FROM n8n_agents WHERE id = $1 AND niche_id = $2', [id, nicheId])).rows[0];
-  if (!agent) return res.status(404).json({ error: 'Agente nao encontrado.' });
+  if (!agent) return res.status(404).json({ error: 'Agente não encontrado.' });
 
   try {
     if (agent.n8n_workflow_id) await n8nService.deleteWorkflow(agent.n8n_workflow_id);
   } catch (err) {
-    console.warn('Aviso: nao foi possivel remover o workflow no n8n:', err.message);
+    console.warn('Aviso: não foi possível remover o workflow no n8n:', err.message);
   }
   await db.query('DELETE FROM n8n_agents WHERE id = $1', [id]);
   res.status(204).send();
 }
 
-module.exports = { createOrUpdateAgent, resync, toggleActive, list, remove };
+module.exports = { createOrUpdateAgent, resync, runNow, toggleActive, list, remove };

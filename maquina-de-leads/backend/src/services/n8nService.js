@@ -3,7 +3,6 @@ const axios = require('axios');
 function n8nClient() {
   return axios.create({
     baseURL: process.env.N8N_BASE_URL,
-    timeout: 30000,
     headers: {
       'X-N8N-API-KEY': process.env.N8N_API_KEY,
       'Content-Type': 'application/json',
@@ -38,9 +37,8 @@ async function createWorkflow(workflowJson) {
 
   try {
     await client.post(`/api/v1/workflows/${created.id}/activate`);
-    await client.post(`/api/v1/workflows/${created.id}/deactivate`);
   } catch (activationErr) {
-    console.warn('Aviso: nao foi possivel criar versao ativa do workflow:', activationErr.message);
+    console.warn('Aviso: nao foi possivel ativar o workflow apos criacao:', activationErr.message);
   }
 
   return updated;
@@ -73,10 +71,20 @@ async function getWorkflow(workflowId) {
   return data;
 }
 
+/**
+ * Dispara a execucao de um workflow chamando seu Webhook Trigger.
+ * So funciona se o workflow estiver ATIVO (webhook de producao).
+ * Nao usa a API key - webhooks sao endpoints publicos por path unico.
+ */
+async function triggerWebhook(webhookUrl) {
+  return axios.get(webhookUrl, { timeout: 15000 });
+}
+
 module.exports = {
   createWorkflow,
   updateWorkflow,
   setActive,
   deleteWorkflow,
   getWorkflow,
+  triggerWebhook,
 };
