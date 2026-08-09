@@ -14,8 +14,14 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      const code = err.response.data?.code;
+      if (code === 'TOKEN_EXPIRED') {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      } else {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(err);
   }

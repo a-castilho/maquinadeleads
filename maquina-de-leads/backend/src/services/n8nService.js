@@ -3,6 +3,7 @@ const axios = require('axios');
 function n8nClient() {
   return axios.create({
     baseURL: process.env.N8N_BASE_URL,
+    timeout: 30000,
     headers: {
       'X-N8N-API-KEY': process.env.N8N_API_KEY,
       'Content-Type': 'application/json',
@@ -10,9 +11,6 @@ function n8nClient() {
   });
 }
 
-/**
- * Remove campos read-only que o n8n rejeita em POST/PUT de workflows.
- */
 function cleanWorkflowPayload(workflowJson) {
   const readOnlyFields = [
     'id', 'active', 'createdAt', 'updatedAt', 'meta', 'staticData',
@@ -35,14 +33,9 @@ async function createWorkflow(workflowJson) {
   const client = n8nClient();
   const cleanPayload = cleanWorkflowPayload(workflowJson);
 
-  // 1. Cria o workflow
   const { data: created } = await client.post('/api/v1/workflows', cleanPayload);
-
-  // 2. O n8n cria workflows via API sem salvar uma "active version".
-  //    Fazemos um PUT para forcar a criacao de uma versao.
   const { data: updated } = await client.put(`/api/v1/workflows/${created.id}`, cleanPayload);
 
-  // 3. Ativa e desativa para criar a versao ativa
   try {
     await client.post(`/api/v1/workflows/${created.id}/activate`);
     await client.post(`/api/v1/workflows/${created.id}/deactivate`);

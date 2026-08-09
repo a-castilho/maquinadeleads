@@ -13,61 +13,115 @@ function slugify(text) {
 }
 
 async function list(req, res) {
-  const result = await db.query(
-    'SELECT * FROM niches WHERE user_id = $1 ORDER BY created_at DESC',
-    [req.user.sub]
-  );
-  res.json({ niches: result.rows });
+  try {
+    const result = await db.query(
+      'SELECT * FROM niches WHERE user_id = $1 ORDER BY created_at DESC',
+      [req.user.sub]
+    );
+    res.json({ niches: result.rows });
+  } catch (err) {
+    console.error('[niches.list] Erro:', err.message);
+    res.status(500).json({ error: 'Erro ao listar nichos.' });
+  }
 }
 
 async function create(req, res) {
-  const { name, description } = req.body;
+  const { name, description, credentials: initialCreds } = req.body;
   if (!name) return res.status(400).json({ error: 'Nome do nicho e obrigatorio.' });
 
   const slug = `${slugify(name)}-${Date.now().toString(36)}`;
-  const result = await db.query(
-    `INSERT INTO niches (user_id, name, slug, description) VALUES ($1, $2, $3, $4) RETURNING *`,
-    [req.user.sub, name, slug, description || null]
-  );
-  res.status(201).json({ niche: result.rows[0] });
+  const client = await db.pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const nicheResult = await client.query(
+      `INSERT INTO niches (user_id, name, slug, description) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [req.user.sub, name, slug, description || null]
+    );
+    const niche = nicheResult.rows[0];
+
+    // Cria credenciais default vazias para o nicho
+    const defaultProviders = ['postgres_n8n', 'serper', 'evolution_api'];
+    for (const provider of defaultProviders) {
+      const credData = initialCreds?.[provider] || {};
+      await client.query(
+        `INSERT INTO credentials (niche_id, provider, api_key, base_url, extra_config)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (niche_id, provider) DO NOTHING`,
+        [
+          niche.id,
+          provider,
+          credData.apiKey || null,
+          credData.baseUrl || null,
+          credData.extraConfig ? JSON.stringify(credData.extraConfig) : '{}'
+        ]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json({ niche });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[niches.create] Erro:', err.message);
+    res.status(500).json({ error: 'Erro ao criar nicho.', details: err.message });
+  } finally {
+    client.release();
+  }
 }
 
 async function getOne(req, res) {
-  const result = await db.query(
-    'SELECT * FROM niches WHERE id = $1 AND user_id = $2',
-    [req.params.id, req.user.sub]
-  );
-  if (result.rows.length === 0) return res.status(404).json({ error: 'Nicho nao encontrado.' });
+  try {
+    const result = await db.query(
+      'SELECT * FROM niches WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.sub]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Nicho nao encontrado.' });
 
-  const agentsResult = await db.query(
-    'SELECT * FROM n8n_agents WHERE niche_id = $1 ORDER BY created_at ASC',
-    [req.params.id]
-  );
+    const [agentsResult, credsResult] = await Promise.all([
+      db.query('SELECT * FROM n8n_agents WHERE niche_id = $1 ORDER BY created_at ASC', [req.params.id]),
+      db.query('SELECT id, niche_id, provider, base_url, extra_config, created_at FROM credentials WHERE niche_id = $1', [req.params.id])
+    ]);
 
-  res.json({ 
-    niche: result.rows[0],
-    agents: agentsResult.rows 
-  });
+    res.json({
+      niche: result.rows[0],
+      agents: agentsResult.rows,
+      credentials: credsResult.rows
+    });
+  } catch (err) {
+    console.error('[niches.getOne] Erro:', err.message);
+    res.status(500).json({ error: 'Erro ao buscar nicho.' });
+  }
 }
 
 async function update(req, res) {
-  const { name, description, active } = req.body;
-  const result = await db.query(
-    `UPDATE niches SET
-       name = COALESCE($1, name),
-       description = COALESCE($2, description),
-       active = COALESCE($3, active)
-     WHERE id = $4 AND user_id = $5
-     RETURNING *`,
-    [name, description, active, req.params.id, req.user.sub]
-  );
-  if (result.rows.length === 0) return res.status(404).json({ error: 'Nicho nao encontrado.' });
-  res.json({ niche: result.rows[0] });
+  try {
+    const { name, description, active } = req.body;
+    const result = await db.query(
+      `UPDATE niches SET
+         name = COALESCE($1, name),
+         description = COALESCE($2, description),
+         active = COALESCE($3, active)
+       WHERE id = $4 AND user_id = $5
+       RETURNING *`,
+      [name, description, active, req.params.id, req.user.sub]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Nicho nao encontrado.' });
+    res.json({ niche: result.rows[0] });
+  } catch (err) {
+    console.error('[niches.update] Erro:', err.message);
+    res.status(500).json({ error: 'Erro ao atualizar nicho.' });
+  }
 }
 
 async function remove(req, res) {
-  await db.query('DELETE FROM niches WHERE id = $1 AND user_id = $2', [req.params.id, req.user.sub]);
-  res.status(204).send();
+  try {
+    await db.query('DELETE FROM niches WHERE id = $1 AND user_id = $2', [req.params.id, req.user.sub]);
+    res.status(204).send();
+  } catch (err) {
+    console.error('[niches.remove] Erro:', err.message);
+    res.status(500).json({ error: 'Erro ao remover nicho.' });
+  }
 }
 
 async function resyncAgent(req, res) {
@@ -79,7 +133,7 @@ async function resyncAgent(req, res) {
       [nicheId, req.user.sub]
     );
     if (nicheCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Nicho nao encontrado.' });
+      return res.status(403).json({ error: 'Nicho nao encontrado.' });
     }
 
     const agentResult = await db.query(

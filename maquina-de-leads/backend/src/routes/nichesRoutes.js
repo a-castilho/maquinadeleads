@@ -5,18 +5,15 @@ const templates = require('../controllers/messageTemplatesController');
 const credentials = require('../controllers/credentialsController');
 const agents = require('../controllers/agentsController');
 const leads = require('../controllers/leadsController');
-const agentsController = require('../controllers/agentsController');
 
 const router = express.Router();
-
-router.post('/niches/:nicheId/agents/:id/resync', agentsController.resync);
 
 // Nichos
 router.get('/', niches.list);
 router.post('/', niches.create);
 router.get('/:id', niches.getOne);
 router.put('/:id', niches.update);
-router.delete('/', niches.remove);
+router.delete('/:id', niches.remove);
 
 // Palavras-chave
 router.get('/:nicheId/keywords', keywords.list);
@@ -37,7 +34,7 @@ router.put('/:nicheId/credentials', credentials.upsert);
 // Agentes n8n
 router.get('/:nicheId/agents', agents.list);
 router.post('/:nicheId/agents', agents.createOrUpdateAgent);
-router.post('/:nicheId/agents/:id/resync', agents.resync); // <--- ROTA ADICIONADA
+router.post('/:nicheId/agents/:id/resync', agents.resync);
 router.patch('/:nicheId/agents/:id/active', agents.toggleActive);
 router.delete('/:nicheId/agents/:id', agents.remove);
 
