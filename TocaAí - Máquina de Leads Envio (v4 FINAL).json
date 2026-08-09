@@ -1,0 +1,218 @@
+{
+  "name": "TocaAí - Máquina de Leads Envio (v4 FINAL)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        48,
+        1280
+      ],
+      "id": "3789dfc2-518f-4d2c-a64b-2b859396a84e",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, nome_perfil, whatsapp, link_instagram \nFROM leads_prospeccao \nWHERE ultima_mensagem_enviada IS NULL \nLIMIT 10;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        1280
+      ],
+      "id": "d6903c63-ab9f-4e6d-9b94-c4d87a0d7de6",
+      "name": "Puxa Leads Pendentes",
+      "credentials": {
+        "postgres": {
+          "id": "A13bd8SIU1rMqr5D",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ddds = new Set([11,12,13,14,15,16,17,18,19,21,22,24,27,28,31,32,33,34,35,37,38,41,42,43,44,45,46,47,48,49,51,53,54,55,61,62,63,64,65,66,67,68,69,71,73,74,75,77,79,81,82,83,84,85,86,87,88,89,91,92,93,94,95,96,97,98,99]);\nconst out = [];\n\nfor (const item of $input.all()) {\n  const j = item.json;\n  const d = String(j.whatsapp || '').replace(/\\D/g, '');\n  let num = null;\n  \n  if (d.startsWith('55')) {\n    const r = d.slice(2);\n    if (r.length === 11 && ddds.has(parseInt(r.slice(0,2)))) num = '+' + d;\n    else if (r.length === 10 && ddds.has(parseInt(r.slice(0,2)))) num = '+' + '55' + r.slice(0,2) + '9' + r.slice(2);\n  } else {\n    if (d.length === 11 && ddds.has(parseInt(d.slice(0,2)))) num = '+55' + d;\n    else if (d.length === 10 && ddds.has(parseInt(d.slice(0,2)))) num = '+55' + d.slice(0,2) + '9' + d.slice(2);\n  }\n  \n  if (num) {\n    const nome = j.nome_perfil || 'Mestre';\n    const msg = `Fala, ${nome}! 👋\\n\\nO *TocaAí* tá te esperando! Sistema pronto e funcionando, é só acessar:\\n\\n🔗 https://tocaai-latest.onrender.com/\\n\\nBora testar? 🔥`;\n    out.push({ json: { ...j, numeroCorrigido: num, mensagem: msg } });\n  }\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        1280
+      ],
+      "id": "b917b237-a023-4a05-9938-5a6bd89620e2",
+      "name": "formataCel"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://evolution-api-v1-8-7-gpgj.onrender.com/message/sendText/tocaai",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "TocaAiMestre2026"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $json.numeroCorrigido }}"
+            },
+            {
+              "name": "options[delay]",
+              "value": "={{ 1200 }}"
+            },
+            {
+              "name": "options[presence]",
+              "value": "composing"
+            },
+            {
+              "name": "textMessage[text]",
+              "value": "={{ $json.mensagem }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        672,
+        1280
+      ],
+      "id": "5714c900-868f-438e-b130-a4c72db28a5b",
+      "name": "HTTP Request - Evolution",
+      "alwaysOutputData": false,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE leads_prospeccao\nSET status = 'enviado',\n    ultima_mensagem_enviada = NOW(),\n    updated_at = NOW()\nWHERE id = {{ $('formataCel').item.json.id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        880,
+        1168
+      ],
+      "id": "7973aae9-b245-4858-957c-dd42686ca743",
+      "name": "Atualiza Enviado",
+      "credentials": {
+        "postgres": {
+          "id": "A13bd8SIU1rMqr5D",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE leads_prospeccao\nSET status = 'erro',\n    updated_at = NOW()\nWHERE id = {{ $('formataCel').item.json.id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        880,
+        1376
+      ],
+      "id": "4cad8c5e-1b5a-473a-a4d1-8d38431cec24",
+      "name": "Atualiza Erro",
+      "credentials": {
+        "postgres": {
+          "id": "A13bd8SIU1rMqr5D",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Puxa Leads Pendentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Puxa Leads Pendentes": {
+      "main": [
+        [
+          {
+            "node": "formataCel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "formataCel": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Evolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Evolution": {
+      "main": [
+        [
+          {
+            "node": "Atualiza Enviado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Atualiza Erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "4c287f77-c350-450b-a2e0-d63f3dc34130",
+  "meta": {
+    "instanceId": "68517c8e729f6b3f17d2a534c7a2c3f9362d142ced020413ac9a18b32a6b0f6e"
+  },
+  "nodeGroups": [],
+  "id": "n4105S0r8i9hA3aR",
+  "tags": []
+}

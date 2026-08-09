@@ -1,0 +1,193 @@
+use_default_settings: true
+
+server:
+  secret_key: "maquina_de_leads_searxng_secret_key"
+  limiter: false
+  image_proxy: false
+  method: "GET"
+  default_http_headers:
+    X-Requested-With: XMLHttpRequest
+    Accept-Language: "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7"
+    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+
+search:
+  safe_search: 0
+  autocomplete: "duckduckgo"
+  default_lang: "pt-BR"
+  formats:
+    - html
+    - json
+  paging: true
+  time_range: ""
+  max_page: 10
+
+outgoing:
+  request_timeout: 10.0
+  max_request_timeout: 15.0
+  pool_connections: 100
+  pool_maxsize: 100
+  enable_http2: true
+  retries: 2
+
+engines:
+  - name: google
+    engine: google
+    shortcut: g
+    timeout: 5.0
+    disabled: false
+
+  - name: bing
+    engine: bing
+    shortcut: b
+    timeout: 5.0
+    disabled: false
+
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    timeout: 5.0
+    disabled: false
+
+  - name: brave
+    engine: brave
+    shortcut: br
+    timeout: 5.0
+    disabled: false
+
+  - name: startpage
+    engine: startpage
+    shortcut: sp
+    timeout: 5.0
+    disabled: false
+
+  - name: mojeek
+    engine: mojeek
+    shortcut: mjk
+    timeout: 5.0
+    disabled: false
+
+  - name: qwant
+    engine: qwant
+    shortcut: qw
+    timeout: 5.0
+    disabled: false
+
+  - name: yahoo
+    engine: yahoo
+    shortcut: yh
+    timeout: 5.0
+    disabled: false
+
+  - name: yandex
+    engine: yandex
+    shortcut: ye
+    timeout: 5.0
+    disabled: false
+
+  - name: swisscows
+    engine: swisscows
+    shortcut: sc
+    timeout: 5.0
+    disabled: false
+
+  - name: seznam
+    engine: seznam
+    shortcut: sz
+    timeout: 5.0
+    disabled: false
+
+  - name: gigablast
+    engine: gigablast
+    shortcut: gb
+    timeout: 5.0
+    disabled: false
+
+  - name: alexandria
+    engine: alexandria
+    shortcut: al
+    timeout: 5.0
+    disabled: false
+
+  - name: etools
+    engine: etools
+    shortcut: et
+    timeout: 5.0
+    disabled: false
+
+  - name: presearch
+    engine: presearch
+    shortcut: ps
+    timeout: 5.0
+    disabled: false
+
+  - name: findx
+    engine: findx
+    shortcut: fx
+    timeout: 5.0
+    disabled: false
+
+  - name: youtube
+    engine: youtube
+    shortcut: yt
+    timeout: 5.0
+    disabled: false
+
+  - name: reddit
+    engine: reddit
+    shortcut: re
+    timeout: 5.0
+    disabled: false
+
+  - name: twitter
+    engine: twitter
+    shortcut: tw
+    timeout: 5.0
+    disabled: false
+
+  - name: github
+    engine: github
+    shortcut: gh
+    timeout: 5.0
+    disabled: false
+
+  - name: gitlab
+    engine: gitlab
+    shortcut: gl
+    timeout: 5.0
+    disabled: false
+
+  - name: openstreetmap
+    engine: openstreetmap
+    shortcut: osm
+    timeout: 5.0
+    disabled: false
+
+  - name: photon
+    engine: photon
+    shortcut: ph
+    timeout: 5.0
+    disabled: false
+
+botdetection:
+  ip_limit:
+    active: false
+    filter: false
+    link_token: false
+  local_ips:
+    - 127.0.0.1
+    - 192.168.0.0/16
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+
+categories:
+  general:
+    - google
+    - bing
+    - duckduckgo
+    - brave
+    - startpage
+    - mojeek
+    - qwant
+    - yahoo
+    - yandex
+    - swisscows

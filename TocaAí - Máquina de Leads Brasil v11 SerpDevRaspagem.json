@@ -1,0 +1,534 @@
+{
+  "name": "TocaAí - Máquina de Leads Brasil v11 SerpDevRaspagem",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "id": "b45744e2-6b76-43a9-ba61-9094d8d9cc52",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        112,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const nichos = [\n  \"cantor\",\n  \"cantora\",\n  \"banda\",\n  \"dj\",\n  \"musico\",\n  \"musicos\",\n  \"vocalista\",\n  \"violonista\",\n  \"guitarrista\",\n  \"baterista\",\n  \"baixista\",\n  \"tecladista\",\n  \"saxofonista\",\n  \"sertanejo\",\n  \"sertaneja\",\n  \"pagode\",\n  \"samba\",\n  \"rock\",\n  \"pop\",\n  \"gospel\",\n  \"forro\",\n  \"funk\",\n  \"rap\",\n  \"hip hop\",\n  \"trap\",\n  \"eletronica\",\n  \"cover\",\n  \"acustico\",\n  \"jazz\",\n  \"blues\",\n  \"reggae\",\n  \"mpb\",\n  \"bossa nova\",\n  \"axe\",\n  \"arrocha\",\n  \"brega\",\n  \"country\",\n  \"metal\",\n  \"punk\",\n  \"indie\",\n  \"alternativo\",\n  \"classica\",\n  \"orquestra\",\n  \"coral\",\n  \"dupla sertaneja\",\n  \"banda de casamento\",\n  \"banda de festa\",\n  \"banda de evento\",\n  \"cantor de bar\",\n  \"cantor de restaurante\",\n  \"cantor de hotel\",\n  \"artista\",\n  \"compositor\",\n  \"produtor musical\",\n  \"estudio de gravacao\",\n  \"show ao vivo\",\n  \"palco\",\n  \"microfone\",\n  \"ensaio\",\n  \"ensaio aberto\"\n];\n\nconst sites = [\n  \"site:instagram.com\",\n  \"site:facebook.com\"\n];\n\nconst extras = [\n  \"whatsapp\",\n  \"contato\",\n  \"telefone\",\n  \"agenda\",\n  \"show\",\n  \"evento\",\n  \"casamento\",\n  \"festa\",\n  \"booking\"\n];\n\nconst queries = [];\n\n// Busca 1: nicho + whatsapp + site\nfor (const nicho of nichos) {\n  for (const site of sites) {\n    queries.push({ q: `\"${nicho}\" \"whatsapp\" ${site}`, start: 0 });\n  }\n}\n\n// Busca 2: nicho + contato + site\nfor (const nicho of nichos.slice(0, 20)) {\n  for (const site of sites) {\n    queries.push({ q: `\"${nicho}\" \"contato\" ${site}`, start: 0 });\n  }\n}\n\n// Busca 3: nicho + telefone + site\nfor (const nicho of nichos.slice(0, 15)) {\n  for (const site of sites) {\n    queries.push({ q: `\"${nicho}\" \"telefone\" ${site}`, start: 0 });\n  }\n}\n\n// Busca 4: nicho + evento/casamento + whatsapp\nfor (const nicho of nichos.slice(0, 10)) {\n  queries.push({ q: `\"${nicho}\" \"casamento\" \"whatsapp\" site:instagram.com`, start: 0 });\n  queries.push({ q: `\"${nicho}\" \"festa\" \"whatsapp\" site:instagram.com`, start: 0 });\n}\n\n// Busca 5: termos específicos brasileiros\nconst brTerms = [\n  \"banda para festa\",\n  \"cantor para evento\",\n  \"dj para casamento\",\n  \"musico para bar\",\n  \"show particular\",\n  \"agenda de shows\",\n  \"contratar banda\",\n  \"contratar cantor\",\n  \"contratar dj\"\n];\nfor (const term of brTerms) {\n  queries.push({ q: `\"${term}\" \"whatsapp\" site:instagram.com`, start: 0 });\n  queries.push({ q: `\"${term}\" \"whatsapp\" site:facebook.com`, start: 0 });\n}\n\n// Exemplo para limitar a 50 buscas por execução\nreturn queries.slice(0, 50).map(q => ({ json: q }));"
+      },
+      "id": "9f6d995d-fd44-4b0e-b574-d1194cf95f12",
+      "name": "Gerador de Matriz",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        320,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://google.serper.dev/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "google"
+            },
+            {
+              "name": "q",
+              "value": "={{ $json.q }}"
+            },
+            {
+              "name": "start",
+              "value": "={{ $json.start }}"
+            },
+            {
+              "name": "page",
+              "value": "=={{ $json.start ? Math.floor($json.start / 10) + 1 : 1 }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "1aa3fa2ef891d547ce557a6f073489d04e6b33db"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 250
+            }
+          }
+        }
+      },
+      "id": "90b82d0f-b7cd-4353-b81f-86213365156e",
+      "name": "Busca raspagem de dados",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        496,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pega TODOS os resultados do nó \"Busca raspagem de dados\"\nconst allApiResponses = $('Busca raspagem de dados').all();\n\nconst items = [];\nconst seen = new Set();\n\n\nfunction sanitizeNome(nome) {\n  if (!nome) return null;\n  // Remove caracteres não-ASCII e emojis\n  return nome\n    .normalize('NFD')\n    .replace(/[̀-ͯ]/g, '')\n    .replace(/[^\u0000-]/g, '')\n    .replace(/[🟢🚨▶️🎵🎶📱💰✨🏆🎸🎤🎧📢🔊💬👥🎥📽️🎬🎞️]/g, '')\n    .replace(/\\s+/g, ' ')\n    .trim()\n    .substring(0, 200);\n}\n\nfunction extrairNomeDoTitle(title) {\n  if (!title) return null;\n\n  // Remove tudo depois de certas palavras-chave\n  let nome = title\n    .split(/WhatsApp|whatsapp|WHATSAPP|Telefone|telefone|TELEFONE|Contato|contato|CONTATO|Booking|booking|Shows|shows|SHOWS/)[0]\n    .trim();\n\n  // Remove frases comuns que não são nomes\n  nome = nome\n    .replace(/^(RECEBEMOS NO WHATSAPP|Chegou a comunidade|Mande seu som|Central de fãs|Grupo de whatsapp|TO SEM BANDA|Tô sem banda|Procura-se vocalista|Add o nosso número de WhatsApp|no meu WhatsApp|para formar banda|para musicos e cantores)\\s*[!🚨\\-]*\\s*/i, '')\n    .replace(/\\s*\\|.*$/, '')\n    .replace(/\\s*\\-.*$/, '')\n    .replace(/[🟢🚨▶️🎵🎶📱💰✨🏆🎸🎤🎧📢🔊💬👥🎥📽️🎬🎞️]/g, '')\n    .replace(/\\s+/g, ' ')\n    .trim();\n\n  if (nome.length < 3) return null;\n  nome = nome.replace(/^whatsapp\\s+/i, '');\n\n  // Trunca em 250 caracteres\n  return nome.substring(0, 250) || null;\n}\n\nfunction extrairNomeDoSource(source) {\n  if (!source) return null;\n  const match = source.match(/·\\s*(.+)$/);\n  if (match) return match[1].trim();\n  if (source === 'Facebook' || source === 'Instagram') return null;\n  return source.trim();\n}\n\nconst rePhone = /(\\+55\\s*)?\\(?(\\d{2})\\)?[\\s\\-]?(\\d{4,5})[\\s\\-]?(\\d{4})(?!\\d)/g;\n\nfunction extrairWhatsapp(texto) {\n  if (!texto) return null;\n  let match;\n  while ((match = rePhone.exec(texto)) !== null) {\n    let ddd = match[2];\n    let parte1 = match[3];\n    let parte2 = match[4];\n    if (parte1.length >= 4) {\n      return `55${ddd}${parte1}${parte2}`;\n    }\n  }\n  return null;\n}\n\nconst reWaMe = /wa\\.me\\/([a-zA-Z][a-zA-Z0-9._-]{1,})/;\n\n// Processa CADA resposta da API\nfor (const apiItem of allApiResponses) {\n  const apiResponse = apiItem.json;\n const results = apiResponse.organic || [];\n  const currentQuery = apiResponse.q || apiResponse.search_parameters?.q || '';\n\n  for (const r of results) {\n    const title = r.title ?? '';\n    const link = r.link ?? '';\n    const snippet = r.snippet ?? '';\n\n    let nome_perfil = null;\n    if (r.channel && r.channel.trim()) {\n      nome_perfil = r.channel.trim();\n    }\n    if (!nome_perfil && r.source) {\n      nome_perfil = extrairNomeDoSource(r.source);\n    }\n    if (!nome_perfil) {\n      nome_perfil = extrairNomeDoTitle(title);\n    }\n    if (!nome_perfil || nome_perfil.length < 2) continue;\n\n    if (['Facebook', 'Instagram', 'WhatsApp', 'Portal da Música', 'Podcast do Lambadão'].includes(nome_perfil)) {\n      continue;\n    }\n\n    let whatsapp = extrairWhatsapp(title) || extrairWhatsapp(snippet) || extrairWhatsapp(link);\n    let wa_username = null;\n    const mWaMe = link.match(reWaMe);\n    if (mWaMe) wa_username = mWaMe[1].split('?')[0];\n\n    if (!whatsapp && !wa_username) continue;\n\n    const chave = wa_username ?? whatsapp ?? nome_perfil.toLowerCase();\n    if (seen.has(chave)) continue;\n    seen.add(chave);\n\n    items.push({\n      json: {\n        nome_perfil: sanitizeNome(nome_perfil),\n        wa_username: wa_username || null,\n        whatsapp: whatsapp || null,\n        link_whatsapp: wa_username ? `https://wa.me/${wa_username}` : (whatsapp ? `https://wa.me/${whatsapp}` : null),\n        snippet: (snippet || '').slice(0, 300),\n        fonte_url: link,\n        original_query: currentQuery,\n        extraido_em: new Date().toISOString(),\n      }\n    });\n  }\n}\n\nreturn items;"
+      },
+      "id": "7cde3d0a-54ce-47c6-a115-2a64747ea371",
+      "name": "Extrair Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        688,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nif (items.length === 0) {\n  return [{ json: { debug: 'nenhum_item_recebido', whatsapp: null } }];\n}\n\nreturn items.map(item => {\n  let raw = item.json.link_whatsapp || item.json.snippet || '';\n  let cleaned = raw.replace(/\\D/g, '');\n\n  if (cleaned.length === 10) cleaned = '55' + cleaned;\n  if (cleaned.length === 11 && !cleaned.startsWith('55')) cleaned = '55' + cleaned;\n\n  if (!cleaned.startsWith('55') || cleaned.length < 12) {\n    cleaned = null;\n  }\n\n  return {\n    json: {\n      ...item.json,\n      whatsapp: cleaned\n    }\n  };\n}).filter(i => i.json.whatsapp !== null && i.json.whatsapp !== '');"
+      },
+      "id": "f3523d22-8a0a-4ff9-977c-d8d113786c28",
+      "name": "Padroniza Telefone",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        864,
+        1392
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const serp = $input.first().json;\nconst next = serp.serpapi_pagination?.next;\nconst currentQ = $input.first().json.q || '';\n\nif (next) {\n  const match = next.match(/start=(\\d+)/);\n  if (match) {\n    return [{ json: { continuar: true, start: parseInt(match[1]), q: currentQ } }];\n  }\n}\nreturn [{ json: { continuar: false } }];"
+      },
+      "id": "935dc10a-d935-4711-b7c1-2926c49cb2ee",
+      "name": "Verifica Paginação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1728,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "aa9c5fec-f25f-420c-a779-0f6649f12247",
+              "leftValue": "={{ $json.continuar }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "512e39b3-7074-4cfe-a6a6-59e44f69a8a7",
+      "name": "If (Tem mais?)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1920,
+        1408
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "5603b2c8-bdda-45d3-a20c-93eeb9c8ac22",
+      "name": "Fim da Query",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2128,
+        1616
+      ]
+    },
+    {
+      "parameters": {
+        "schema": "public",
+        "table": "leads_prospeccao",
+        "columns": {
+          "0": "n",
+          "1": "o",
+          "2": "m",
+          "3": "e",
+          "4": "_",
+          "5": "p",
+          "6": "e",
+          "7": "r",
+          "8": "f",
+          "9": "i",
+          "10": "l",
+          "11": ",",
+          "12": "l",
+          "13": "i",
+          "14": "n",
+          "15": "k",
+          "16": "_",
+          "17": "i",
+          "18": "n",
+          "19": "s",
+          "20": "t",
+          "21": "a",
+          "22": "g",
+          "23": "r",
+          "24": "a",
+          "25": "m",
+          "26": ",",
+          "27": "w",
+          "28": "h",
+          "29": "a",
+          "30": "t",
+          "31": "s",
+          "32": "a",
+          "33": "p",
+          "34": "p",
+          "35": ",",
+          "36": "s",
+          "37": "t",
+          "38": "a",
+          "39": "t",
+          "40": "u",
+          "41": "s",
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "id": 0
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nome_perfil",
+              "displayName": "nome_perfil",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "link_instagram",
+              "displayName": "link_instagram",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "whatsapp",
+              "displayName": "whatsapp",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ultima_mensagem_enviada",
+              "displayName": "ultima_mensagem_enviada",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "log_erro",
+              "displayName": "log_erro",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "skipOnConflict": true
+        }
+      },
+      "id": "34a8988e-a946-454a-82d9-e8f7a91cef3b",
+      "name": "Grava no Banco SQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        1552,
+        1392
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "A13bd8SIU1rMqr5D",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f412aeb1-b177-4ac6-a316-72ad3cceb313",
+              "name": "nome_perfil",
+              "value": "={{ $json.nome_perfil }}",
+              "type": "string"
+            },
+            {
+              "id": "283121f7-8542-4d64-86a5-63507fdc29e3",
+              "name": "link_instagram",
+              "value": "={{ $json.fonte_url }}",
+              "type": "string"
+            },
+            {
+              "id": "553d5019-9642-4e13-9c52-44167d4b91e1",
+              "name": "whatsapp",
+              "value": "={{ $json.whatsapp }}",
+              "type": "string"
+            },
+            {
+              "id": "6e5308a0-c5d4-424a-81d0-eb232a8bfb1e",
+              "name": "status",
+              "value": "Pendente",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1104,
+        1392
+      ],
+      "id": "498d569a-d8b0-47c9-b5f4-ccfbe75938f4",
+      "name": "Prepara Insert"
+    },
+    {
+      "parameters": {
+        "compare": "selectedFields",
+        "fieldsToCompare": "whatsapp",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        1392
+      ],
+      "id": "1f083350-8a33-4125-b1d9-4d216620a1a0",
+      "name": "Remove Duplicates"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Gerador de Matriz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerador de Matriz": {
+      "main": [
+        [
+          {
+            "node": "Busca raspagem de dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Busca raspagem de dados": {
+      "main": [
+        [
+          {
+            "node": "Extrair Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Dados": {
+      "main": [
+        [
+          {
+            "node": "Padroniza Telefone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Padroniza Telefone": {
+      "main": [
+        [
+          {
+            "node": "Prepara Insert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grava no Banco SQL": {
+      "main": [
+        [
+          {
+            "node": "Verifica Paginação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifica Paginação": {
+      "main": [
+        [
+          {
+            "node": "If (Tem mais?)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If (Tem mais?)": {
+      "main": [
+        [
+          {
+            "node": "Busca raspagem de dados",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fim da Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara Insert": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates": {
+      "main": [
+        [
+          {
+            "node": "Grava no Banco SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "0eb02084-c3fb-4196-aa68-372ef0cce2ee",
+  "meta": {
+    "instanceId": "68517c8e729f6b3f17d2a534c7a2c3f9362d142ced020413ac9a18b32a6b0f6e"
+  },
+  "nodeGroups": [],
+  "id": "deZ08GDqZjbL8zUH",
+  "tags": []
+}

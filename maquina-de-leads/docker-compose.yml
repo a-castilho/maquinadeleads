@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=senha
+      - N8N_API_KEY=${N8N_API_KEY:-}
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+    networks:
+      - maquina-de-leads
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  searxng:
+    image: searxng/searxng
+    container_name: searxng
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - maquina-de-leads
+    volumes:
+      - ./searxng:/etc/searxng
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: leads_user
+      POSTGRES_PASSWORD: MinhaSenh4Segura123
+      POSTGRES_DB: maquina_de_leads
+    ports:
+      - "5432:5432"
+    networks:
+      - maquina-de-leads
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+networks:
+  maquina-de-leads:
+    driver: bridge
+
+volumes:
+  n8n_data:
+  postgres_data:

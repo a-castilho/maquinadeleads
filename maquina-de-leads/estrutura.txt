@@ -1,0 +1,62 @@
+.
+├── backend
+│   ├── dependencias.txt
+│   ├── estrutura.txt
+│   ├── package.json
+│   ├── package-lock.json
+│   └── src
+│       ├── config
+│       │   └── db.js
+│       ├── controllers
+│       │   ├── agentsController.js
+│       │   ├── authController.js
+│       │   ├── credentialsController.js
+│       │   ├── keywordsController.js
+│       │   ├── leadsController.js
+│       │   ├── messageTemplatesController.js
+│       │   └── nichesController.js
+│       ├── db
+│       │   ├── migrate.js
+│       │   └── schema.sql
+│       ├── middleware
+│       │   └── auth.js
+│       ├── routes
+│       │   ├── authRoutes.js
+│       │   └── nichesRoutes.js
+│       ├── scripts
+│       │   └── report.js
+│       ├── server.js
+│       ├── services
+│       │   └── n8nService.js
+│       └── templates
+│           ├── scrapingTemplate.js
+│           └── sendingTemplate.js
+├── dependencias.txt
+├── docker-compose.yml
+├── estrutura.txt
+├── fix_templates.py
+├── frontend
+│   ├── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── src
+│   │   ├── api
+│   │   │   └── client.js
+│   │   ├── App.jsx
+│   │   ├── components
+│   │   │   └── PrivateRoute.jsx
+│   │   ├── context
+│   │   │   └── AuthContext.jsx
+│   │   ├── main.jsx
+│   │   ├── pages
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── Login.jsx
+│   │   │   ├── NicheDetail.jsx
+│   │   │   └── Register.jsx
+│   │   └── styles.css
+│   └── vite.config.js
+├── README.md
+└── searxng
+    └── settings.yml
+
+17 directories, 42 files
