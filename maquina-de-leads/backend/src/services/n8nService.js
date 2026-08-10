@@ -74,10 +74,21 @@ async function getWorkflow(workflowId) {
 /**
  * Dispara a execucao de um workflow chamando seu Webhook Trigger.
  * So funciona se o workflow estiver ATIVO (webhook de producao).
- * Nao usa a API key - webhooks sao endpoints publicos por path unico.
  */
 async function triggerWebhook(webhookUrl) {
   return axios.get(webhookUrl, { timeout: 15000 });
+}
+
+/**
+ * Lista as ultimas execucoes de um workflow especifico (usado para
+ * mostrar historico/status na tela de agentes).
+ */
+async function getExecutions(workflowId, limit = 10) {
+  const client = n8nClient();
+  const { data } = await client.get('/api/v1/executions', {
+    params: { workflowId, limit },
+  });
+  return data.data || data || [];
 }
 
 module.exports = {
@@ -87,4 +98,5 @@ module.exports = {
   deleteWorkflow,
   getWorkflow,
   triggerWebhook,
+  getExecutions,
 };

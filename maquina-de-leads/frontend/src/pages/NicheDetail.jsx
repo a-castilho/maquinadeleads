@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api/client';
 import LeadsManager from '../components/LeadsManager';
+import { AgentExecutionsTable } from '../components/AgentExecutionsTable';
 
 const TABS = ['Palavras-chave', 'Mensagem', 'Credenciais', 'Agentes', 'Leads'];
 
@@ -529,11 +530,11 @@ function AgentsTab({ nicheId, nicheName, credentials, onTabChange }) {
         </div>
       )}
       <div className="agent-row">
-        <AgentBox label="Raspagem (scraping de leads)" agent={raspagem} onCreate={() => handleCreate('raspagem')}
+        <AgentBox label="Raspagem (scraping de leads)" agent={raspagem} nicheId={nicheId} onCreate={() => handleCreate('raspagem')}
           onResync={() => raspagem && handleResync(raspagem)} onToggle={() => raspagem && handleToggle(raspagem)}
           onDelete={() => raspagem && handleDelete(raspagem)} onRun={() => raspagem && handleRunNow(raspagem)}
           creating={creating === 'raspagem'} resyncing={resyncing === raspagem?.id} running={running === raspagem?.id} />
-        <AgentBox label="Envio (mensagens WhatsApp)" agent={envio} onCreate={() => handleCreate('envio')}
+        <AgentBox label="Envio (mensagens WhatsApp)" agent={envio} nicheId={nicheId} onCreate={() => handleCreate('envio')}
           onResync={() => envio && handleResync(envio)} onToggle={() => envio && handleToggle(envio)}
           onDelete={() => envio && handleDelete(envio)} onRun={() => envio && handleRunNow(envio)}
           creating={creating === 'envio'} resyncing={resyncing === envio?.id} running={running === envio?.id} />
@@ -542,7 +543,7 @@ function AgentsTab({ nicheId, nicheName, credentials, onTabChange }) {
   );
 }
 
-function AgentBox({ label, agent, onCreate, onResync, onToggle, onDelete, onRun, creating, resyncing, running }) {
+function AgentBox({ label, agent, nicheId, onCreate, onResync, onToggle, onDelete, onRun, creating, resyncing, running }) {
   return (
     <div className="agent-box">
       <h3>{label}</h3>
@@ -559,6 +560,13 @@ function AgentBox({ label, agent, onCreate, onResync, onToggle, onDelete, onRun,
             <button onClick={onToggle}>{agent.active ? 'Desativar' : 'Ativar'}</button>
             <button onClick={onResync} disabled={resyncing}>{resyncing ? 'Sincronizando...' : 'Ressincronizar'}</button>
             <button className="danger" onClick={onDelete}>Remover</button>
+          </div>
+
+          <div style={{ marginTop: '24px', borderTop: '1px solid #374151', paddingTop: '16px' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: '600', color: '#9ca3af', marginBottom: '12px' }}>
+              Histórico de Execuções
+            </h4>
+            <AgentExecutionsTable nicheId={nicheId} agentId={agent.id} />
           </div>
         </>
       )}

@@ -3,6 +3,7 @@ const { assertNicheOwnership } = require('../utils/ownership');
 const n8nService = require('../services/n8nService');
 const { buildScrapingWorkflow } = require('../templates/scrapingTemplate');
 const { buildSendingWorkflow } = require('../templates/sendingTemplate');
+const { buildEnrichmentWorkflow } = require('../templates/enrichmentTemplate');
 
 async function loadNicheConfig(nicheId) {
   const niche = (await db.query('SELECT * FROM niches WHERE id = $1', [nicheId])).rows[0];
@@ -36,6 +37,69 @@ function buildWebhookUrl(webhookPath) {
   return `${base}/webhook/${webhookPath}`;
 }
 
+const AGENT_TYPES = ['raspagem', 'envio', 'enriquecimento'];
+
+/**
+ * Monta o workflowJson certo para o tipo de agente, validando as
+ * credenciais necessarias para cada tipo. Usado tanto na criacao quanto
+ * no resync, para nao duplicar essa logica em dois lugares.
+ * Retorna { workflowJson } ou { errorResponse } se faltar algo.
+ */
+function buildWorkflowForType(agentType, { nicheId, niche, keywords, contextTerms, template, credByProvider, postgresCredentialId, webhookPath }) {
+  if (agentType === 'raspagem') {
+    const serper = credByProvider['serper'];
+    if (!serper?.api_key) {
+      return { errorResponse: { status: 400, body: { error: 'Credencial "serper" não configurada para este nicho.' } } };
+    }
+    return {
+      workflowJson: buildScrapingWorkflow({
+        nicheId,
+        nicheName: niche.name,
+        keywords,
+        contextTerms: contextTerms.length ? contextTerms : undefined,
+        serperApiKey: serper.api_key,
+        postgresCredentialId,
+        webhookPath,
+      }),
+    };
+  }
+
+  if (agentType === 'envio') {
+    if (!template) {
+      return { errorResponse: { status: 400, body: { error: 'Cadastre um template de mensagem antes de criar o agente de envio.' } } };
+    }
+    const evo = credByProvider['evolution_api'];
+    if (!evo?.api_key || !evo?.base_url) {
+      return { errorResponse: { status: 400, body: { error: 'Credencial "evolution_api" (base_url + api_key) não configurada para este nicho.' } } };
+    }
+    return {
+      workflowJson: buildSendingWorkflow({
+        nicheId,
+        nicheName: niche.name,
+        messageTemplate: template.body,
+        evolutionBaseUrl: evo.base_url,
+        evolutionInstance: evo.extra_config?.instanceName || niche.slug,
+        evolutionApiKey: evo.api_key,
+        postgresCredentialId,
+        webhookPath,
+      }),
+    };
+  }
+
+  if (agentType === 'enriquecimento') {
+    return {
+      workflowJson: buildEnrichmentWorkflow({
+        nicheId,
+        nicheName: niche.name,
+        postgresCredentialId,
+        webhookPath,
+      }),
+    };
+  }
+
+  return { errorResponse: { status: 400, body: { error: `agentType desconhecido: ${agentType}` } } };
+}
+
 /**
  * Depois de criar/atualizar o workflow, garante que ele fica ATIVO
  * (necessario para o webhook de producao responder) e dispara uma
@@ -62,8 +126,8 @@ async function createOrUpdateAgent(req, res) {
   if (!(await assertNicheOwnership(nicheId, req.user.sub))) {
     return res.status(404).json({ error: 'Nicho não encontrado.' });
   }
-  if (!['raspagem', 'envio'].includes(agentType)) {
-    return res.status(400).json({ error: 'agentType deve ser "raspagem" ou "envio".' });
+  if (!AGENT_TYPES.includes(agentType)) {
+    return res.status(400).json({ error: `agentType deve ser um de: ${AGENT_TYPES.join(', ')}.` });
   }
 
   try {
@@ -71,9 +135,6 @@ async function createOrUpdateAgent(req, res) {
 
     if (agentType === 'raspagem' && keywords.length === 0) {
       return res.status(400).json({ error: 'Cadastre ao menos uma palavra-chave antes de criar o agente de raspagem.' });
-    }
-    if (agentType === 'envio' && !template) {
-      return res.status(400).json({ error: 'Cadastre um template de mensagem antes de criar o agente de envio.' });
     }
 
     const pg = credByProvider['postgres_n8n'];
@@ -89,36 +150,10 @@ async function createOrUpdateAgent(req, res) {
     const webhookPath = buildWebhookPath(agentType, nicheId);
     const webhookUrl = buildWebhookUrl(webhookPath);
 
-    let workflowJson;
-    if (agentType === 'raspagem') {
-      const serper = credByProvider['serper'];
-      if (!serper?.api_key) return res.status(400).json({ error: 'Credencial "serper" não configurada para este nicho.' });
-
-      workflowJson = buildScrapingWorkflow({
-        nicheId,
-        nicheName: niche.name,
-        keywords,
-        contextTerms: contextTerms.length ? contextTerms : undefined,
-        serperApiKey: serper.api_key,
-        postgresCredentialId,
-        webhookPath,
-      });
-    } else {
-      const evo = credByProvider['evolution_api'];
-      if (!evo?.api_key || !evo?.base_url) {
-        return res.status(400).json({ error: 'Credencial "evolution_api" (base_url + api_key) não configurada para este nicho.' });
-      }
-      workflowJson = buildSendingWorkflow({
-        nicheId,
-        nicheName: niche.name,
-        messageTemplate: template.body,
-        evolutionBaseUrl: evo.base_url,
-        evolutionInstance: evo.extra_config?.instanceName || niche.slug,
-        evolutionApiKey: evo.api_key,
-        postgresCredentialId,
-        webhookPath,
-      });
-    }
+    const { workflowJson, errorResponse } = buildWorkflowForType(agentType, {
+      nicheId, niche, keywords, contextTerms, template, credByProvider, postgresCredentialId, webhookPath,
+    });
+    if (errorResponse) return res.status(errorResponse.status).json(errorResponse.body);
 
     const existing = (await db.query(
       'SELECT * FROM n8n_agents WHERE niche_id = $1 AND agent_type = $2', [nicheId, agentType]
@@ -181,37 +216,10 @@ async function resync(req, res) {
     const webhookPath = buildWebhookPath(agent.agent_type, nicheId);
     const webhookUrl = buildWebhookUrl(webhookPath);
 
-    let workflowJson;
-    if (agent.agent_type === 'raspagem') {
-      const serper = credByProvider['serper'];
-      if (!serper?.api_key) return res.status(400).json({ error: 'Credencial "serper" não configurada para este nicho.' });
-
-      workflowJson = buildScrapingWorkflow({
-        nicheId,
-        nicheName: niche.name,
-        keywords,
-        contextTerms: contextTerms.length ? contextTerms : undefined,
-        serperApiKey: serper.api_key,
-        postgresCredentialId,
-        webhookPath,
-      });
-    } else {
-      const evo = credByProvider['evolution_api'];
-      if (!evo?.api_key || !evo?.base_url) {
-        return res.status(400).json({ error: 'Credencial "evolution_api" (base_url + api_key) não configurada para este nicho.' });
-      }
-
-      workflowJson = buildSendingWorkflow({
-        nicheId,
-        nicheName: niche.name,
-        messageTemplate: template.body,
-        evolutionBaseUrl: evo.base_url,
-        evolutionInstance: evo.extra_config?.instanceName || niche.slug,
-        evolutionApiKey: evo.api_key,
-        postgresCredentialId,
-        webhookPath,
-      });
-    }
+    const { workflowJson, errorResponse } = buildWorkflowForType(agent.agent_type, {
+      nicheId, niche, keywords, contextTerms, template, credByProvider, postgresCredentialId, webhookPath,
+    });
+    if (errorResponse) return res.status(errorResponse.status).json(errorResponse.body);
 
     let n8nResponse;
     let workflowId = agent.n8n_workflow_id;
@@ -350,4 +358,40 @@ async function remove(req, res) {
   res.status(204).send();
 }
 
-module.exports = { createOrUpdateAgent, resync, runNow, toggleActive, list, remove };
+async function listExecutions(req, res) {
+  const { nicheId, id } = req.params;
+
+  if (!(await assertNicheOwnership(nicheId, req.user.sub))) {
+    return res.status(404).json({ error: 'Nicho não encontrado.' });
+  }
+
+  const agent = (await db.query(
+    'SELECT n8n_workflow_id FROM n8n_agents WHERE id = $1 AND niche_id = $2',
+    [id, nicheId]
+  )).rows[0];
+
+  if (!agent || !agent.n8n_workflow_id) {
+    return res.json({ executions: [] });
+  }
+
+  try {
+    const executions = await n8nService.getExecutions(agent.n8n_workflow_id);
+
+    const formattedExecutions = (executions || []).map((exec) => ({
+      id: exec.id,
+      status: exec.status,
+      startedAt: exec.startedAt,
+      stoppedAt: exec.stoppedAt,
+      runningTime: exec.stoppedAt && exec.startedAt
+        ? new Date(exec.stoppedAt) - new Date(exec.startedAt)
+        : null,
+    }));
+
+    res.json({ executions: formattedExecutions });
+  } catch (err) {
+    console.error('Erro ao listar execuções:', err.message);
+    res.json({ executions: [] });
+  }
+}
+
+module.exports = { createOrUpdateAgent, resync, runNow, toggleActive, list, remove, listExecutions };

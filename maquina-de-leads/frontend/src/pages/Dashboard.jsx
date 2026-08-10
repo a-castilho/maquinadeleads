@@ -29,6 +29,24 @@ export default function Dashboard() {
     load();
   }
 
+  // --- NOVA FUNÇÃO ADICIONADA ---
+  async function handleDelete(e, id, nicheName) {
+    e.preventDefault(); // Impede a navegação do Link
+    
+    // Pede confirmação antes de excluir
+    const confirmed = window.confirm(`Tem certeza que deseja excluir o nicho "${nicheName}"? Isso também apagará todos os leads e agentes vinculados.`);
+    
+    if (confirmed) {
+      try {
+        await api.delete(`/niches/${id}`);
+        load(); // Recarrega a lista após exclusão
+      } catch (err) {
+        console.error("Erro ao excluir nicho:", err);
+        alert("Erro ao excluir o nicho. Verifique o console.");
+      }
+    }
+  }
+
   return (
     <div className="page">
       <header className="topbar">
@@ -66,7 +84,29 @@ export default function Dashboard() {
         ) : (
           <div className="grid">
             {niches.map((n) => (
-              <Link to={`/nichos/${n.id}`} key={n.id} className="niche-card">
+              <Link to={`/nichos/${n.id}`} key={n.id} className="niche-card" style={{ position: 'relative' }}>
+                
+                {/* --- NOVO BOTÃO DE EXCLUSÃO ADICIONADO --- */}
+                <button 
+                  onClick={(e) => handleDelete(e, n.id, n.name)}
+                  style={{
+                   position: 'absolute',
+		    bottom: '10px', /* <-- Mudamos de 'top' para 'bottom' */
+		    right: '10px',
+		    background: '#fef2f2',
+		    color: '#dc2626',
+		    border: '1px solid #fecaca',
+		    borderRadius: '4px',
+		    padding: '4px 8px',
+		    cursor: 'pointer',
+		    fontSize: '12px'
+                  }}
+                  title="Excluir nicho"
+                >
+                  Excluir
+                </button>
+                {/* -------------------------------------- */}
+
                 <h3>{n.name}</h3>
                 <p>{n.description || 'Sem descrição'}</p>
                 <span className={`badge ${n.active ? 'badge-active' : 'badge-inactive'}`}>

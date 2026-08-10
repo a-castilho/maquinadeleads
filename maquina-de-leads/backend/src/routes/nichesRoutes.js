@@ -15,7 +15,7 @@ const requiredMethods = {
   keywords: ['list', 'bulkCreate', 'update', 'remove'],
   templates: ['list', 'create', 'update', 'remove'],
   credentials: ['list', 'upsert'],
-  agents: ['createOrUpdateAgent', 'resync', 'runNow', 'toggleActive', 'list', 'remove'],
+  agents: ['createOrUpdateAgent', 'resync', 'runNow', 'toggleActive', 'list', 'remove', 'listExecutions'],
   leads: ['list', 'getOne', 'update', 'remove', 'stats', 'bulkUpdate'],
 };
 
@@ -61,6 +61,7 @@ router.post('/:nicheId/agents/:id/resync', controllers.agents.resync);
 router.post('/:nicheId/agents/:id/run', controllers.agents.runNow);
 router.patch('/:nicheId/agents/:id/active', controllers.agents.toggleActive);
 router.delete('/:nicheId/agents/:id', controllers.agents.remove);
+router.get('/:nicheId/agents/:id/executions', controllers.agents.listExecutions);
 
 // Leads (CRUD completo)
 router.get('/:nicheId/leads', controllers.leads.list);
