@@ -149,6 +149,27 @@ async function remove(req, res) {
   }
 }
 
+async function clearNicheLeads(req, res) {
+  const { nicheId } = req.params;
+
+  try {
+    if (!(await assertNicheOwnership(nicheId, req.user.sub))) {
+      return res.status(403).json({ error: 'Acesso negado a este nicho.' });
+    }
+
+    const result = await db.query('DELETE FROM leads WHERE niche_id = $1', [nicheId]);
+
+    res.json({
+      success: true,
+      message: `${result.rowCount} leads removidos do nicho com sucesso.`,
+      deletedCount: result.rowCount
+    });
+  } catch (err) {
+    console.error('[leads.clearNicheLeads] Erro:', err.message);
+    res.status(500).json({ error: 'Erro ao limpar leads do nicho.' });
+  }
+}
+
 async function stats(req, res) {
   const { nicheId } = req.params;
 
@@ -173,6 +194,8 @@ async function stats(req, res) {
            CASE
              WHEN fonte_url LIKE '%instagram%' THEN 'Instagram'
              WHEN fonte_url LIKE '%facebook%' THEN 'Facebook'
+             WHEN fonte_url LIKE '%tiktok%' THEN 'TikTok'
+             WHEN fonte_url LIKE '%google.com/maps%' OR fonte_url LIKE '%maps.google%' THEN 'Google Maps'
              ELSE 'Outros'
            END as fonte,
            COUNT(*)::int as total
@@ -218,4 +241,4 @@ async function bulkUpdate(req, res) {
   }
 }
 
-module.exports = { list, getOne, update, remove, stats, bulkUpdate };
+module.exports = { list, getOne, update, remove, clearNicheLeads, stats, bulkUpdate };

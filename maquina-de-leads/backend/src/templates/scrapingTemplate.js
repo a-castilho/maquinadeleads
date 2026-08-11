@@ -1,8 +1,6 @@
 /**
- * Gera o JSON do workflow n8n com TODAS as fontes de busca em paralelo:
- * - Robô Python (Search + Maps)
- * - Serper API (Search + Maps)
- * - SearXNG
+ * Gera o JSON do workflow n8n com correção de rastreamento de metadados,
+ * limpeza inteligente de nomes e categorização de fontes de busca.
  */
 function buildScrapingWorkflow(config) {
   const {
@@ -12,12 +10,11 @@ function buildScrapingWorkflow(config) {
     contextTerms = [],
     serperApiKey = "",
     searxngUrl = "http://searxng:8080/search",
-    roboPythonUrl = "http://172.17.0.1:8000", // IP da rede Docker para alcançar o host (PM2)
+    roboPythonUrl = "http://172.17.0.1:8000",
     postgresCredentialId,
     scheduleHours = 1,
   } = config;
 
-  // Garante que os termos de contexto venham do sistema
   const finalContextTerms = Array.isArray(contextTerms) && contextTerms.length > 0 
     ? contextTerms 
     : ["whatsapp", "contato", "telefone", "wa.me"];
@@ -49,11 +46,21 @@ function buildScrapingWorkflow(config) {
     'return queries.slice(0, 50).map(q => ({ json: q }));'
   ].join('\n');
 
-  // 2. Extrai e Formata Leads (Suporta resultados do Robô Python, Serper e SearXNG)
+  // 2. Extrai e Formata Leads (Com categorização de fonte e limpeza de nome)
   const extraiLeadsCode = [
     'const dddsValidos = new Set([11,12,13,14,15,16,17,18,19,21,22,24,27,28,31,32,33,34,35,37,38,41,42,43,44,45,46,47,48,49,51,53,54,55,61,62,63,64,65,66,67,68,69,71,73,74,75,77,79,81,82,83,84,85,86,87,88,89,91,92,93,94,95,96,97,98,99]);',
     'const blacklistDomains = ["amazon.", "microsoft.", "youtube.com", "cinemark.", "thehill.com", "google."];',
-    'const blacklistTitle = ["link to", "quanto custa", "como colocar", "grupo", "festas em", "tudo para", "olx", "professor", "quarteirão", "playlist", "oferta", "dicas", "como ativar"];',
+    'const blacklistTitle = ["link to", "quanto custa", "como colocar", "grupo", "festas em", "tudo para", "olx", "professor", "quarteirão", "playlist", "oferta", "dicas", "como ativar", "resgate de um comercial", "olha só que massa"];',
+    '',
+    'function identificarFonte(url) {',
+    '  if (!url) return "outros";',
+    '  const u = url.toLowerCase();',
+    '  if (u.includes("instagram.com")) return "instagram";',
+    '  if (u.includes("facebook.com")) return "facebook";',
+    '  if (u.includes("tiktok.com")) return "tiktok";',
+    '  if (u.includes("google.com/maps") || u.includes("maps.google")) return "google_maps";',
+    '  return "outros";',
+    '}',
     '',
     'function extrairWhatsapp(texto) {',
     '  if (!texto) return null;',
@@ -85,7 +92,13 @@ function buildScrapingWorkflow(config) {
     '',
     'function limparNomePerfil(title) {',
     '  if (!title) return "Desconhecido";',
-    '  let nome = title.replace(/• Instagram photos and videos/gi, "").replace(/Instagram/gi, "").replace(/в Instagram : Link to instagram\\.com/gi, "").replace(/Link to (instagram|facebook)\\.com/gi, "").split("|")[0].split("-")[0].split("(")[0].trim();',
+    '  if (title.length > 60 || title.includes("...") || title.toLowerCase().includes("video") || title.toLowerCase().includes("posts/")) return "Desconhecido";',
+    '  let nome = title.replace(/• Instagram photos and videos/gi, "")',
+    '                  .replace(/Instagram/gi, "")',
+    '                  .replace(/Facebook/gi, "")',
+    '                  .replace(/в Instagram : Link to instagram\\.com/gi, "")',
+    '                  .replace(/Link to (instagram|facebook)\\.com/gi, "")',
+    '                  .split("|")[0].split("-")[0].split("(")[0].trim();',
     '  return nome.length > 2 ? nome : "Desconhecido";',
     '}',
     '',
@@ -140,6 +153,7 @@ function buildScrapingWorkflow(config) {
     '        link_whatsapp: linkWhatsappFinal,',
     '        snippet: snippet.slice(0, 300),',
     '        fonte_url: link,',
+    '        fonte_categoria: identificarFonte(link),',
     '        original_query: currentQuery,',
     '        status: whatsappFinal ? "pendente" : "sem_telefone"',
     '      }',
@@ -149,7 +163,7 @@ function buildScrapingWorkflow(config) {
     'return items.length > 0 ? items : [{ json: { aviso: "Nenhum link valido encontrado nos resultados." } }];'
   ].join('\n');
 
-  // 3. Extrai WhatsApp do HTML
+  // 3. Extrai WhatsApp do HTML mantendo o rastreamento via itemMatching
   const extraiHtmlCode = [
     'const dddsValidos = new Set([11,12,13,14,15,16,17,18,19,21,22,24,27,28,31,32,33,34,35,37,38,41,42,43,44,45,46,47,48,49,51,53,54,55,61,62,63,64,65,66,67,68,69,71,73,74,75,77,79,81,82,83,84,85,86,87,88,89,91,92,93,94,95,96,97,98,99]);',
     'function extrairWhatsapp(texto) {',
@@ -179,7 +193,7 @@ function buildScrapingWorkflow(config) {
     '  const inputItem = allInputs[i];',
     '  let leadOriginal = {};',
     '  try {',
-    '    leadOriginal = $node["Verifica Telefone"].all()[i]?.json || {};',
+    '    leadOriginal = $("Verifica Telefone").itemMatching(i).json || {};',
     '  } catch (e) {',
     '    leadOriginal = {};',
     '  }',
@@ -211,6 +225,7 @@ function buildScrapingWorkflow(config) {
     '      link_whatsapp: linkWhatsappFinal,',
     '      snippet: leadOriginal.snippet || "",',
     '      fonte_url: leadOriginal.fonte_url || "",',
+    '      fonte_categoria: leadOriginal.fonte_categoria || "outros",',
     '      original_query: leadOriginal.original_query || "",',
     '      status: statusFinal',
     '    }',
@@ -243,6 +258,7 @@ function buildScrapingWorkflow(config) {
     '  if (!snippet || snippet === "undefined" || snippet === "null") snippet = "";',
     '  let fonteUrl = j.fonte_url;',
     '  if (!fonteUrl || fonteUrl === "undefined" || fonteUrl === "null") fonteUrl = "";',
+    '  let fonteCategoria = j.fonte_categoria || "outros";',
     '  let originalQuery = j.original_query;',
     '  if (!originalQuery || originalQuery === "undefined" || originalQuery === "null") originalQuery = "";',
     '  out.push({',
@@ -254,6 +270,7 @@ function buildScrapingWorkflow(config) {
     '      link_whatsapp: linkWhatsapp,',
     '      snippet: snippet,',
     '      fonte_url: fonteUrl,',
+    '      fonte_categoria: fonteCategoria,',
     '      original_query: originalQuery,',
     '      status: j.status || "sem_telefone"',
     '    }',
@@ -287,8 +304,6 @@ function buildScrapingWorkflow(config) {
       position: [220, 0],
       parameters: { jsCode: geraQueriesCode },
     },
-
-    // --- 1 & 2: ROBÔ PYTHON (Local/Host) ---
     {
       id: 'busca_robo_search',
       name: 'Busca Robô Python (Search)',
@@ -323,8 +338,6 @@ function buildScrapingWorkflow(config) {
         jsonBody: '={{ JSON.stringify({ q: $json.q }) }}',
       },
     },
-
-    // --- 3 & 4: SERPER API ---
     {
       id: 'busca_serper_search',
       name: 'Busca Serper (Search)',
@@ -369,8 +382,6 @@ function buildScrapingWorkflow(config) {
         jsonBody: '={{ JSON.stringify({ q: $json.q }) }}',
       },
     },
-
-    // --- 5: SEARXNG ---
     {
       id: 'busca_searxng',
       name: 'Busca SearXNG',
@@ -390,8 +401,6 @@ function buildScrapingWorkflow(config) {
         },
       },
     },
-
-    // --- PROCESSAMENTO DE DADOS ---
     {
       id: 'extrai_leads',
       name: 'Extrai e Formata Leads',
@@ -520,11 +529,11 @@ ON CONFLICT (niche_id, whatsapp) DO NOTHING;`,
   };
 
   return {
-    name: '[Maquina de Leads] Raspagem Quíntupla (Robô/Serper/SearXNG) - ' + nicheName,
+    name: '[Maquina de Leads] Raspagem Quíntupla - ' + nicheName,
     nodes,
     connections,
     settings: { executionOrder: 'v1' },
-    active: false, // Inicia pausado no n8n
+    active: false,
   };
 }
 

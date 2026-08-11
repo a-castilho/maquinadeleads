@@ -12,6 +12,7 @@ export default function NicheDetail() {
   const [agents, setAgents] = useState([]);
   const [credentials, setCredentials] = useState([]);
   const [tab, setTab] = useState(TABS[0]);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     api.get(`/niches/${id}`).then((res) => {
@@ -21,15 +22,51 @@ export default function NicheDetail() {
     });
   }, [id]);
 
+  async function handleClearLeads() {
+    const confirmacao = window.confirm(
+      '⚠️ ATENÇÃO: Deseja realmente apagar TODOS os leads deste nicho?\n\nEsta ação é irreversível e zerará o histórico de capturas.'
+    );
+
+    if (!confirmacao) return;
+
+    setClearing(true);
+    try {
+      const res = await api.delete(`/niches/${id}/leads`);
+      alert(res.data.message || 'Base de leads limpa com sucesso.');
+      window.location.reload();
+    } catch (err) {
+      alert('Erro ao limpar base de leads: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setClearing(false);
+    }
+  }
+
   if (!niche) return <div className="page">Carregando...</div>;
 
   return (
     <div className="page">
-      <header className="topbar">
+      <header className="topbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <Link to="/" className="back-link">← Nichos</Link>
           <h1>{niche.name}</h1>
         </div>
+        <button
+          onClick={handleClearLeads}
+          disabled={clearing}
+          style={{
+            background: '#dc2626',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '8px 16px',
+            fontSize: '13px',
+            fontWeight: '600',
+            cursor: clearing ? 'not-allowed' : 'pointer',
+            opacity: clearing ? 0.7 : 1
+          }}
+        >
+          {clearing ? 'Limpando...' : '🗑️ Limpar Base de Leads'}
+        </button>
       </header>
 
       <nav className="tabs">

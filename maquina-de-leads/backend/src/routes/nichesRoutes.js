@@ -16,7 +16,7 @@ const requiredMethods = {
   templates: ['list', 'create', 'update', 'remove'],
   credentials: ['list', 'upsert'],
   agents: ['createOrUpdateAgent', 'resync', 'runNow', 'toggleActive', 'list', 'remove', 'listExecutions'],
-  leads: ['list', 'getOne', 'update', 'remove', 'stats', 'bulkUpdate'],
+  leads: ['list', 'getOne', 'update', 'remove', 'clearNicheLeads', 'stats', 'bulkUpdate'],
 };
 
 for (const [ctrlName, methods] of Object.entries(requiredMethods)) {
@@ -68,6 +68,7 @@ router.get('/:nicheId/leads', controllers.leads.list);
 router.get('/:nicheId/leads/stats', controllers.leads.stats);
 router.get('/:nicheId/leads/:id', controllers.leads.getOne);
 router.put('/:nicheId/leads/:id', controllers.leads.update);
+router.delete('/:nicheId/leads', controllers.leads.clearNicheLeads);
 router.delete('/:nicheId/leads/:id', controllers.leads.remove);
 router.post('/:nicheId/leads/bulk', controllers.leads.bulkUpdate);
 
