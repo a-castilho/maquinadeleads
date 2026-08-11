@@ -1,20 +1,29 @@
 /**
- * Gera o JSON do workflow n8n de RASPAGEM (scraping) completo e corrigido.
+ * Gera o JSON do workflow n8n com TODAS as fontes de busca em paralelo:
+ * - Robô Python (Search + Maps)
+ * - Serper API (Search + Maps)
+ * - SearXNG
  */
 function buildScrapingWorkflow(config) {
   const {
     nicheId,
     nicheName,
     keywords = [],
-    contextTerms = ["whatsapp", "contato", "telefone", "wa.me"],
-    serperApiKey,
+    contextTerms = [],
+    serperApiKey = "",
     searxngUrl = "http://searxng:8080/search",
+    roboPythonUrl = "http://172.17.0.1:8000", // IP da rede Docker para alcançar o host (PM2)
     postgresCredentialId,
-    scheduleHours = 6,
+    scheduleHours = 1,
   } = config;
 
+  // Garante que os termos de contexto venham do sistema
+  const finalContextTerms = Array.isArray(contextTerms) && contextTerms.length > 0 
+    ? contextTerms 
+    : ["whatsapp", "contato", "telefone", "wa.me"];
+
   const keywordsEscaped = JSON.stringify(keywords);
-  const contextTermsEscaped = JSON.stringify(contextTerms);
+  const contextTermsEscaped = JSON.stringify(finalContextTerms);
 
   // 1. Gera Queries de Busca
   const geraQueriesCode = [
@@ -40,7 +49,7 @@ function buildScrapingWorkflow(config) {
     'return queries.slice(0, 50).map(q => ({ json: q }));'
   ].join('\n');
 
-  // 2. Extrai e Formata Leads do Snippet
+  // 2. Extrai e Formata Leads (Suporta resultados do Robô Python, Serper e SearXNG)
   const extraiLeadsCode = [
     'const dddsValidos = new Set([11,12,13,14,15,16,17,18,19,21,22,24,27,28,31,32,33,34,35,37,38,41,42,43,44,45,46,47,48,49,51,53,54,55,61,62,63,64,65,66,67,68,69,71,73,74,75,77,79,81,82,83,84,85,86,87,88,89,91,92,93,94,95,96,97,98,99]);',
     'const blacklistDomains = ["amazon.", "microsoft.", "youtube.com", "cinemark.", "thehill.com", "google."];',
@@ -140,7 +149,7 @@ function buildScrapingWorkflow(config) {
     'return items.length > 0 ? items : [{ json: { aviso: "Nenhum link valido encontrado nos resultados." } }];'
   ].join('\n');
 
-  // 3. Extrai WhatsApp do HTML baixado (Higienizado contra ReDoS/Trava de Runner)
+  // 3. Extrai WhatsApp do HTML
   const extraiHtmlCode = [
     'const dddsValidos = new Set([11,12,13,14,15,16,17,18,19,21,22,24,27,28,31,32,33,34,35,37,38,41,42,43,44,45,46,47,48,49,51,53,54,55,61,62,63,64,65,66,67,68,69,71,73,74,75,77,79,81,82,83,84,85,86,87,88,89,91,92,93,94,95,96,97,98,99]);',
     'function extrairWhatsapp(texto) {',
@@ -210,7 +219,7 @@ function buildScrapingWorkflow(config) {
     'return items;'
   ].join('\n');
 
-  // 4. Sanitiza Dados (Tratamento contra strings nulas/undefined)
+  // 4. Sanitiza Dados
   const sanitizaDadosCode = [
     'const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;',
     "const NICHE_ID_FIXO = '" + nicheId + "';",
@@ -278,12 +287,50 @@ function buildScrapingWorkflow(config) {
       position: [220, 0],
       parameters: { jsCode: geraQueriesCode },
     },
+
+    // --- 1 & 2: ROBÔ PYTHON (Local/Host) ---
     {
-      id: 'busca_serper',
-      name: 'Busca Serper API',
+      id: 'busca_robo_search',
+      name: 'Busca Robô Python (Search)',
       type: 'n8n-nodes-base.httpRequest',
       typeVersion: 4.4,
-      position: [440, -120],
+      position: [440, -200],
+      onError: 'continueErrorOutput',
+      parameters: {
+        method: 'POST',
+        url: `${roboPythonUrl}/search`,
+        sendHeaders: true,
+        headerParameters: { parameters: [{ name: 'Content-Type', value: 'application/json' }] },
+        sendBody: true,
+        specifyBody: 'json',
+        jsonBody: '={{ JSON.stringify({ q: $json.q }) }}',
+      },
+    },
+    {
+      id: 'busca_robo_maps',
+      name: 'Busca Robô Python (Maps)',
+      type: 'n8n-nodes-base.httpRequest',
+      typeVersion: 4.4,
+      position: [440, -100],
+      onError: 'continueErrorOutput',
+      parameters: {
+        method: 'POST',
+        url: `${roboPythonUrl}/maps`,
+        sendHeaders: true,
+        headerParameters: { parameters: [{ name: 'Content-Type', value: 'application/json' }] },
+        sendBody: true,
+        specifyBody: 'json',
+        jsonBody: '={{ JSON.stringify({ q: $json.q }) }}',
+      },
+    },
+
+    // --- 3 & 4: SERPER API ---
+    {
+      id: 'busca_serper_search',
+      name: 'Busca Serper (Search)',
+      type: 'n8n-nodes-base.httpRequest',
+      typeVersion: 4.4,
+      position: [440, 0],
       onError: 'continueErrorOutput',
       parameters: {
         method: 'POST',
@@ -301,11 +348,35 @@ function buildScrapingWorkflow(config) {
       },
     },
     {
+      id: 'busca_serper_maps',
+      name: 'Busca Serper (Maps)',
+      type: 'n8n-nodes-base.httpRequest',
+      typeVersion: 4.4,
+      position: [440, 100],
+      onError: 'continueErrorOutput',
+      parameters: {
+        method: 'POST',
+        url: 'https://google.serper.dev/maps',
+        sendHeaders: true,
+        headerParameters: {
+          parameters: [
+            { name: 'X-API-KEY', value: serperApiKey },
+            { name: 'Content-Type', value: 'application/json' },
+          ],
+        },
+        sendBody: true,
+        specifyBody: 'json',
+        jsonBody: '={{ JSON.stringify({ q: $json.q }) }}',
+      },
+    },
+
+    // --- 5: SEARXNG ---
+    {
       id: 'busca_searxng',
       name: 'Busca SearXNG',
       type: 'n8n-nodes-base.httpRequest',
       typeVersion: 4.4,
-      position: [440, 120],
+      position: [440, 200],
       onError: 'continueErrorOutput',
       parameters: {
         method: 'GET',
@@ -319,12 +390,14 @@ function buildScrapingWorkflow(config) {
         },
       },
     },
+
+    // --- PROCESSAMENTO DE DADOS ---
     {
       id: 'extrai_leads',
       name: 'Extrai e Formata Leads',
       type: 'n8n-nodes-base.code',
       typeVersion: 2,
-      position: [680, 0],
+      position: [700, 0],
       parameters: { jsCode: extraiLeadsCode },
     },
     {
@@ -332,7 +405,7 @@ function buildScrapingWorkflow(config) {
       name: 'Verifica Telefone',
       type: 'n8n-nodes-base.if',
       typeVersion: 2,
-      position: [900, 0],
+      position: [920, 0],
       parameters: {
         conditions: {
           options: { caseSensitive: true, leftValue: '', typeValidation: 'strict' },
@@ -353,7 +426,7 @@ function buildScrapingWorkflow(config) {
       name: 'Raspa HTML da Fonte',
       type: 'n8n-nodes-base.httpRequest',
       typeVersion: 4.4,
-      position: [1120, -100],
+      position: [1140, -100],
       onError: 'continueRegularOutput',
       parameters: {
         method: 'GET',
@@ -378,7 +451,7 @@ function buildScrapingWorkflow(config) {
       name: 'Extrai WhatsApp do HTML',
       type: 'n8n-nodes-base.code',
       typeVersion: 2,
-      position: [1340, -100],
+      position: [1360, -100],
       parameters: { jsCode: extraiHtmlCode },
     },
     {
@@ -386,7 +459,7 @@ function buildScrapingWorkflow(config) {
       name: 'Sanitiza Dados',
       type: 'n8n-nodes-base.code',
       typeVersion: 2,
-      position: [1560, 0],
+      position: [1580, 0],
       parameters: { jsCode: sanitizaDadosCode },
     },
     {
@@ -394,7 +467,7 @@ function buildScrapingWorkflow(config) {
       name: 'Salva Leads no Postgres',
       type: 'n8n-nodes-base.postgres',
       typeVersion: 2.6,
-      position: [1780, 0],
+      position: [1800, 0],
       parameters: {
         operation: 'executeQuery',
         query: `INSERT INTO leads (niche_id, nome_perfil, wa_username, whatsapp, link_whatsapp, snippet, fonte_url, original_query, status)
@@ -421,12 +494,18 @@ ON CONFLICT (niche_id, whatsapp) DO NOTHING;`,
     'Gera Queries de Busca': {
       main: [
         [
-          { node: 'Busca Serper API', type: 'main', index: 0 },
+          { node: 'Busca Robô Python (Search)', type: 'main', index: 0 },
+          { node: 'Busca Robô Python (Maps)', type: 'main', index: 0 },
+          { node: 'Busca Serper (Search)', type: 'main', index: 0 },
+          { node: 'Busca Serper (Maps)', type: 'main', index: 0 },
           { node: 'Busca SearXNG', type: 'main', index: 0 }
         ]
       ]
     },
-    'Busca Serper API': { main: [[{ node: 'Extrai e Formata Leads', type: 'main', index: 0 }]] },
+    'Busca Robô Python (Search)': { main: [[{ node: 'Extrai e Formata Leads', type: 'main', index: 0 }]] },
+    'Busca Robô Python (Maps)': { main: [[{ node: 'Extrai e Formata Leads', type: 'main', index: 0 }]] },
+    'Busca Serper (Search)': { main: [[{ node: 'Extrai e Formata Leads', type: 'main', index: 0 }]] },
+    'Busca Serper (Maps)': { main: [[{ node: 'Extrai e Formata Leads', type: 'main', index: 0 }]] },
     'Busca SearXNG': { main: [[{ node: 'Extrai e Formata Leads', type: 'main', index: 0 }]] },
     'Extrai e Formata Leads': { main: [[{ node: 'Verifica Telefone', type: 'main', index: 0 }]] },
     'Verifica Telefone': {
@@ -441,11 +520,11 @@ ON CONFLICT (niche_id, whatsapp) DO NOTHING;`,
   };
 
   return {
-    name: '[Maquina de Leads] Raspagem Dual - ' + nicheName,
+    name: '[Maquina de Leads] Raspagem Quíntupla (Robô/Serper/SearXNG) - ' + nicheName,
     nodes,
     connections,
     settings: { executionOrder: 'v1' },
-    active: false,
+    active: false, // Inicia pausado no n8n
   };
 }
 
