@@ -45,7 +45,7 @@ services:
     volumes:
       - ./searxng:/etc/searxng
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/', timeout=3)\" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -57,7 +57,7 @@ services:
       dockerfile: Dockerfile
     container_name: maquina-de-leads-backend
     restart: unless-stopped
-    environment:
+    environment: &backend-env
       PORT: 4000
       JWT_SECRET: ${JWT_SECRET:-dev_only_jwt_secret_change_before_production_1234567890abcdef}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
@@ -81,6 +81,25 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: maquina-de-leads-worker
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      WORKER_POLL_MS: ${WORKER_POLL_MS:-3000}
+    command: ["npm", "run", "worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      searxng:
+        condition: service_healthy
+    networks: [maquina-de-leads]
 
   frontend:
     build:
