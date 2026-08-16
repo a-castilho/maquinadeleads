@@ -1,0 +1,83 @@
+name: Native Engine CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - feature/native-engine-phase-1
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: leads_user
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: maquina_de_leads
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U leads_user -d maquina_de_leads"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: maquina-de-leads/backend
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://leads_user:ci_password@127.0.0.1:5432/maquina_de_leads
+      PGSSL: "false"
+      JWT_SECRET: ci-only-secret-not-for-production
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: maquina-de-leads/backend/package-lock.json
+      - run: npm ci
+      - name: Check JavaScript syntax
+        run: |
+          set -e
+          find src test -type f -name '*.js' -print0 | while IFS= read -r -d '' file; do
+            node --check "$file"
+          done
+      - name: Apply database migrations
+        run: npm run migrate
+      - name: Run unit tests
+        run: npm test
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: maquina-de-leads/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: maquina-de-leads/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  compose:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: maquina-de-leads
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose model
+        env:
+          POSTGRES_PASSWORD: ci_password
+          JWT_SECRET: ci-only-secret-not-for-production
+        run: docker compose config >/dev/null

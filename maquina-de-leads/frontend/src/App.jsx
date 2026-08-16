@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
-import NicheDetail from './pages/NicheDetail.jsx';
+import CampaignDetail from './pages/CampaignDetail.jsx';
 import PrivateRoute from './components/PrivateRoute.jsx';
 
 export default function App() {
@@ -19,13 +19,14 @@ export default function App() {
         }
       />
       <Route
-        path="/nichos/:id"
+        path="/campanhas/:id"
         element={
           <PrivateRoute>
-            <NicheDetail />
+            <CampaignDetail />
           </PrivateRoute>
         }
       />
+      <Route path="/nichos/:id" element={<Navigate to="/" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

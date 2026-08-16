@@ -3,54 +3,91 @@ import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
+const STATUS_LABELS = {
+  draft: 'Rascunho',
+  preparing: 'Preparando',
+  ready: 'Pronta',
+  running: 'Em execução',
+  paused: 'Pausada',
+  completed: 'Concluída',
+  failed: 'Com erro',
+};
+
 export default function Dashboard() {
   const { user, logout } = useAuth();
-  const [niches, setNiches] = useState([]);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [campaigns, setCampaigns] = useState([]);
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    location: '',
+    offer: '',
+    targetAudience: '',
+    objective: '',
+  });
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   async function load() {
-    const res = await api.get('/niches');
-    setNiches(res.data.niches);
-    setLoading(false);
+    try {
+      const res = await api.get('/niches');
+      setCampaigns(res.data.niches || []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     load();
   }, []);
 
-  async function handleCreate(e) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    await api.post('/niches', { name, description });
-    setName('');
-    setDescription('');
-    load();
+  function change(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
   }
 
-  // --- NOVA FUNÇÃO ADICIONADA ---
-  async function handleDelete(e, id, nicheName) {
-    e.preventDefault(); // Impede a navegação do Link
-    
-    // Pede confirmação antes de excluir
-    const confirmed = window.confirm(`Tem certeza que deseja excluir o nicho "${nicheName}"? Isso também apagará todos os leads e agentes vinculados.`);
-    
-    if (confirmed) {
-      try {
-        await api.delete(`/niches/${id}`);
-        load(); // Recarrega a lista após exclusão
-      } catch (err) {
-        console.error("Erro ao excluir nicho:", err);
-        alert("Erro ao excluir o nicho. Verifique o console.");
-      }
+  async function handleCreate(e) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setCreating(true);
+    try {
+      await api.post('/niches', form);
+      setForm({
+        name: '',
+        description: '',
+        location: '',
+        offer: '',
+        targetAudience: '',
+        objective: '',
+      });
+      await load();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao criar campanha.');
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleDelete(e, id, name) {
+    e.preventDefault();
+    const confirmed = window.confirm(
+      `Excluir a campanha "${name}"? Todos os leads, jobs e configurações vinculados também serão removidos.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/niches/${id}`);
+      await load();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao excluir campanha.');
     }
   }
 
   return (
     <div className="page">
       <header className="topbar">
-        <h1>Máquina de Leads</h1>
+        <div>
+          <h1>Máquina de Leads</h1>
+          <p className="hint">Campanhas de prospecção executadas pelo motor nativo.</p>
+        </div>
         <div className="topbar-user">
           <span>{user?.name}</span>
           <button className="link-btn" onClick={logout}>Sair</button>
@@ -58,60 +95,89 @@ export default function Dashboard() {
       </header>
 
       <section className="card">
-        <h2>Novo nicho de mercado</h2>
-        <form className="inline-form" onSubmit={handleCreate}>
+        <h2>Nova campanha</h2>
+        <p className="hint">Defina o perfil comercial agora. Estratégia, leads e execução ficam dentro da campanha.</p>
+        <form className="stacked-form" onSubmit={handleCreate}>
           <input
-            placeholder="Ex: Odontologia, Imóveis, Academias..."
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            placeholder="Nome da campanha *"
+            value={form.name}
+            onChange={(e) => change('name', e.target.value)}
             required
           />
           <input
-            placeholder="Descrição (opcional)"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Nicho / descrição curta"
+            value={form.description}
+            onChange={(e) => change('description', e.target.value)}
           />
-          <button type="submit">Criar nicho</button>
+          <input
+            placeholder="Localização (ex: São Paulo - SP)"
+            value={form.location}
+            onChange={(e) => change('location', e.target.value)}
+          />
+          <input
+            placeholder="Oferta ou serviço"
+            value={form.offer}
+            onChange={(e) => change('offer', e.target.value)}
+          />
+          <input
+            placeholder="Público-alvo"
+            value={form.targetAudience}
+            onChange={(e) => change('targetAudience', e.target.value)}
+          />
+          <textarea
+            placeholder="Objetivo da campanha"
+            value={form.objective}
+            onChange={(e) => change('objective', e.target.value)}
+            rows={3}
+          />
+          <button type="submit" disabled={creating}>
+            {creating ? 'Criando...' : 'Criar campanha'}
+          </button>
         </form>
       </section>
 
       <section>
-        <h2>Seus nichos</h2>
+        <h2>Campanhas</h2>
         {loading ? (
           <p>Carregando...</p>
-        ) : niches.length === 0 ? (
-          <p className="empty">Nenhum nicho cadastrado ainda. Crie o primeiro acima.</p>
+        ) : campaigns.length === 0 ? (
+          <p className="empty">Nenhuma campanha criada ainda.</p>
         ) : (
           <div className="grid">
-            {niches.map((n) => (
-              <Link to={`/nichos/${n.id}`} key={n.id} className="niche-card" style={{ position: 'relative' }}>
-                
-                {/* --- NOVO BOTÃO DE EXCLUSÃO ADICIONADO --- */}
-                <button 
-                  onClick={(e) => handleDelete(e, n.id, n.name)}
+            {campaigns.map((campaign) => (
+              <Link
+                to={`/campanhas/${campaign.id}`}
+                key={campaign.id}
+                className="niche-card"
+                style={{ position: 'relative' }}
+              >
+                <h3>{campaign.name}</h3>
+                <p>{campaign.description || campaign.offer || 'Sem descrição'}</p>
+                {campaign.location && <p className="hint">📍 {campaign.location}</p>}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                  <span className={`badge ${campaign.active ? 'badge-active' : 'badge-inactive'}`}>
+                    {STATUS_LABELS[campaign.campaign_status] || campaign.campaign_status || 'Rascunho'}
+                  </span>
+                  <span className="badge">{campaign.leads_count || 0} leads</span>
+                  {Number(campaign.active_jobs) > 0 && <span className="badge badge-active">job em execução</span>}
+                </div>
+                <button
+                  onClick={(e) => handleDelete(e, campaign.id, campaign.name)}
                   style={{
-                   position: 'absolute',
-		    bottom: '10px', /* <-- Mudamos de 'top' para 'bottom' */
-		    right: '10px',
-		    background: '#fef2f2',
-		    color: '#dc2626',
-		    border: '1px solid #fecaca',
-		    borderRadius: '4px',
-		    padding: '4px 8px',
-		    cursor: 'pointer',
-		    fontSize: '12px'
+                    position: 'absolute',
+                    bottom: 10,
+                    right: 10,
+                    background: '#fef2f2',
+                    color: '#dc2626',
+                    border: '1px solid #fecaca',
+                    borderRadius: 4,
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    fontSize: 12,
                   }}
-                  title="Excluir nicho"
                 >
                   Excluir
                 </button>
-                {/* -------------------------------------- */}
-
-                <h3>{n.name}</h3>
-                <p>{n.description || 'Sem descrição'}</p>
-                <span className={`badge ${n.active ? 'badge-active' : 'badge-inactive'}`}>
-                  {n.active ? 'Ativo' : 'Inativo'}
-                </span>
               </Link>
             ))}
           </div>
