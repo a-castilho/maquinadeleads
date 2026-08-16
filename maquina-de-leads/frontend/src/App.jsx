@@ -4,6 +4,7 @@ import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import CampaignDetail from './pages/CampaignDetail.jsx';
 import CompanyProfile from './pages/CompanyProfile.jsx';
+import AiKeywordsPage from './pages/AiKeywordsPage.jsx';
 import PrivateRoute from './components/PrivateRoute.jsx';
 import AppLayout from './components/AppLayout.jsx';
 
@@ -22,6 +23,7 @@ export default function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="/perfil-empresa" element={<CompanyProfile />} />
+        <Route path="/ia-palavras-chave" element={<AiKeywordsPage />} />
         <Route path="/campanhas/:id" element={<CampaignDetail />} />
       </Route>
 
