@@ -58,7 +58,8 @@ async function enrichOne(lead, nicheId, timeout) {
   let email = null;
   let description = null;
   let phone = null;
-  let status = 'sem_dados';
+  let resultStatus = 'sem_dados';
+  let persistStatus = 'sem_dados';
   let errorMessage = null;
   try {
     const safeUrl = await assertSafeUrl(lead.fonte_url);
@@ -75,10 +76,12 @@ async function enrichOne(lead, nicheId, timeout) {
     if (description) description = description.slice(0, 500);
     email = extractEmail(html) || extractEmail(description);
     phone = extractPhone(html) || extractPhone(description);
-    status = (email || phone || description) ? 'enriquecido' : 'sem_dados';
+    resultStatus = (email || phone || description) ? 'enriquecido' : 'sem_dados';
+    persistStatus = resultStatus;
   } catch (error) {
     errorMessage = String(error.message || error).slice(0, 500);
-    status = 'falhou';
+    resultStatus = 'falhou';
+    persistStatus = 'pendente';
   }
 
   await db.query(
@@ -88,13 +91,14 @@ async function enrichOne(lead, nicheId, timeout) {
        whatsapp = COALESCE(whatsapp, $3),
        enrichment_status = $4,
        observacao = CASE WHEN $5::text IS NOT NULL THEN LEFT(COALESCE(observacao || ' | ', '') || 'Enrichment: ' || $5, 2000) ELSE observacao END,
-       enriched_at = NOW(), updated_at = NOW()
+       enriched_at = CASE WHEN $4 = 'pendente' THEN enriched_at ELSE NOW() END,
+       updated_at = NOW()
      WHERE id = $6 AND niche_id = $7`,
-    [email, description, phone, status, errorMessage, lead.id, nicheId]
+    [email, description, phone, persistStatus, errorMessage, lead.id, nicheId]
   );
 
-  console.log(`[enrichment] lead=${lead.id} status=${status} email=${Boolean(email)} phone=${Boolean(phone)}${errorMessage ? ` error=${errorMessage}` : ''}`);
-  return { status, email: Boolean(email), phone: Boolean(phone), error: errorMessage };
+  console.log(`[enrichment] lead=${lead.id} status=${resultStatus} persisted=${persistStatus} email=${Boolean(email)} phone=${Boolean(phone)}${errorMessage ? ` error=${errorMessage}` : ''}`);
+  return { status: resultStatus, email: Boolean(email), phone: Boolean(phone), error: errorMessage };
 }
 
 async function enrichBatch(nicheId, options = {}) {
