@@ -12,6 +12,8 @@ const {
   cleanProfileName,
   toLead,
 } = require('../src/services/leadDiscoveryService');
+const { extractEmail, extractPhone } = require('../src/services/enrichmentService');
+const campaignRunner = require('../src/services/campaignRunner');
 
 test('computeScore reaches 100 for a strongly qualified lead', () => {
   const result = computeScore({
@@ -41,7 +43,7 @@ test('computeScore keeps a low-information lead below qualification range', () =
       nome_perfil: 'Desconhecido', whatsapp: null, email: null,
       enrichment_status: 'sem_dados', descricao_extra: null,
       snippet: 'conteúdo genérico', original_query: 'outra busca',
-      fonte_url: 'https://example.com/perfil',
+      fonte_url: '',
     },
   });
   assert.equal(result.score, 0);
@@ -94,4 +96,18 @@ test('toLead accepts identifiable business without phone for later enrichment', 
   assert.ok(converted.lead);
   assert.equal(converted.lead.nomePerfil, 'Clínica Sorriso');
   assert.equal(converted.lead.status, 'sem_telefone');
+});
+
+test('enrichment extracts email and Brazilian phone from page content', () => {
+  const html = '<p>Contato: comercial@empresa.com.br | (31) 99999-1234</p>';
+  assert.equal(extractEmail(html), 'comercial@empresa.com.br');
+  assert.equal(extractPhone(html), '5531999991234');
+});
+
+test('native runner wires the full operational pipeline', () => {
+  assert.equal(campaignRunner.has('campaign.discover_leads'), true);
+  assert.equal(campaignRunner.has('campaign.enrich_leads'), true);
+  assert.equal(campaignRunner.has('campaign.score_leads'), true);
+  assert.equal(campaignRunner.has('campaign.process_batch'), true);
+  assert.equal(campaignRunner.has('campaign.send_messages'), true);
 });
