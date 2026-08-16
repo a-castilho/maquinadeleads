@@ -21,7 +21,7 @@ const requiredMethods = {
   nativeJobs: ['startDiscovery','startEnrichment','startScoring','startSending','activate','pause','resume','processBatch','list','executions'],
   nativeRecovery: ['recover'],
   lifecycle: ['complete'],
-  aiKeywords: ['generate', 'listRuns'],
+  aiKeywords: ['generate', 'listRuns', 'chat', 'chatHistory', 'clearChat'],
 };
 
 for (const [ctrlName, methods] of Object.entries(requiredMethods)) {
@@ -47,6 +47,9 @@ router.put('/:nicheId/keywords/:id', controllers.keywords.update);
 router.delete('/:nicheId/keywords/:id', controllers.keywords.remove);
 router.post('/:nicheId/ai/keywords/generate', controllers.aiKeywords.generate);
 router.get('/:nicheId/ai/keyword-runs', controllers.aiKeywords.listRuns);
+router.post('/:nicheId/ai/keywords/chat', controllers.aiKeywords.chat);
+router.get('/:nicheId/ai/keywords/chat', controllers.aiKeywords.chatHistory);
+router.delete('/:nicheId/ai/keywords/chat', controllers.aiKeywords.clearChat);
 
 router.get('/:nicheId/templates', controllers.templates.list);
 router.post('/:nicheId/templates', controllers.templates.create);
