@@ -18,7 +18,7 @@ const requiredMethods = {
   credentials: ['list', 'upsert'],
   agents: ['createOrUpdateAgent', 'resync', 'runNow', 'toggleActive', 'list', 'remove', 'listExecutions'],
   leads: ['list', 'getOne', 'update', 'remove', 'clearNicheLeads', 'stats', 'bulkUpdate'],
-  nativeJobs: ['startDiscovery', 'list', 'executions'],
+  nativeJobs: ['startDiscovery', 'startSending', 'list', 'executions'],
 };
 
 for (const [ctrlName, methods] of Object.entries(requiredMethods)) {
@@ -58,6 +58,7 @@ router.put('/:nicheId/credentials', controllers.credentials.upsert);
 
 // Motor nativo (migração gradual do n8n)
 router.post('/:nicheId/native/discover', controllers.nativeJobs.startDiscovery);
+router.post('/:nicheId/native/send', controllers.nativeJobs.startSending);
 router.get('/:nicheId/native/jobs', controllers.nativeJobs.list);
 router.get('/:nicheId/native/jobs/:jobId/executions', controllers.nativeJobs.executions);
 
