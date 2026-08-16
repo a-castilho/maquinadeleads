@@ -2,7 +2,7 @@ const axios = require('axios');
 const db = require('../config/db');
 
 const FIELD_MASK = [
-  'places.id', 'places.displayName', 'places.formattedAddress',
+  'places.id', 'places.displayName', 'places.formattedAddress', 'places.location',
   'places.nationalPhoneNumber', 'places.internationalPhoneNumber',
   'places.websiteUri', 'places.rating', 'places.userRatingCount',
   'places.primaryTypeDisplayName', 'places.businessStatus', 'places.googleMapsUri',
@@ -64,6 +64,8 @@ function normalizePlace(place = {}) {
   const normalizedPhone = clean(place.phoneDigits) || normalizeBrazilPhone(phone);
   const name = clean(place.name || place.displayName?.text || place.displayName || '');
   const whatsapp = clean(place.whatsapp) || (isBrazilianMobile(phone) ? normalizedPhone : null);
+  const latitude = Number(place.latitude ?? place.location?.latitude);
+  const longitude = Number(place.longitude ?? place.location?.longitude);
   return {
     placeId: clean(place.placeId || place.id), name,
     address: clean(place.address || place.formattedAddress), phone,
@@ -72,6 +74,8 @@ function normalizePlace(place = {}) {
     rating: Number(place.rating || 0), reviews: Number(place.reviews ?? place.userRatingCount ?? 0),
     category: clean(place.category || place.primaryTypeDisplayName?.text || place.primaryTypeDisplayName || ''),
     businessStatus: clean(place.businessStatus), mapsUrl: clean(place.mapsUrl || place.googleMapsUri) || null,
+    latitude: Number.isFinite(latitude) ? latitude : null,
+    longitude: Number.isFinite(longitude) ? longitude : null,
   };
 }
 
