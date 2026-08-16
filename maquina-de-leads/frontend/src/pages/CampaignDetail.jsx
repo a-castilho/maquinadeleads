@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../api/client';
 import LeadsManager from '../components/LeadsManager';
+import FunnelManager from '../components/FunnelManager';
 
 const TABS = ['Campanha', 'Estratégia', 'Leads', 'Preparação', 'Funil', 'Execução', 'Integrações'];
 
@@ -19,6 +20,7 @@ const JOB_STATUS_LABELS = {
   retry: 'Nova tentativa',
   completed: 'Concluído',
   failed: 'Falhou',
+  cancelled: 'Cancelado',
 };
 
 const CAMPAIGN_STATUS_LABELS = {
@@ -81,13 +83,22 @@ export default function CampaignDetail() {
   async function lifecycle(action) {
     setLifecycleBusy(true);
     try {
-      await api.post(`/niches/${id}/native/${action}`, {});
+      const res = await api.post(`/niches/${id}/native/${action}`, {});
+      if (res.data?.message) alert(res.data.message);
       await load({ silent: true });
     } catch (err) {
       alert(err.response?.data?.error || `Erro ao executar ${action}.`);
     } finally {
       setLifecycleBusy(false);
     }
+  }
+
+  async function completeCampaign() {
+    const confirmed = window.confirm(
+      'Encerrar esta campanha? Jobs que ainda não começaram serão cancelados e novos processamentos serão bloqueados.'
+    );
+    if (!confirmed) return;
+    await lifecycle('complete');
   }
 
   if (loading && !campaign) return <div className="page">Carregando campanha...</div>;
@@ -110,6 +121,9 @@ export default function CampaignDetail() {
           )}
           {campaign.campaign_status === 'paused' && (
             <button disabled={lifecycleBusy} onClick={() => lifecycle('resume')}>Retomar</button>
+          )}
+          {['running', 'paused'].includes(campaign.campaign_status) && (
+            <button disabled={lifecycleBusy} onClick={completeCampaign}>Encerrar</button>
           )}
         </div>
       </header>
@@ -142,7 +156,9 @@ export default function CampaignDetail() {
             onChanged={() => load({ silent: true })}
           />
         )}
-        {tab === 'Funil' && <FunnelTab leadStats={leadStats} />}
+        {tab === 'Funil' && (
+          <FunnelTab campaignId={id} leadStats={leadStats} onChanged={() => load({ silent: true })} />
+        )}
         {tab === 'Execução' && (
           <ExecutionTab
             campaign={campaign}
@@ -423,7 +439,7 @@ function PreparationTab({ campaign, readiness, leadStats, busy, setBusy, onChang
           <button disabled={busy || !readiness.hasLeads} onClick={() => action('score', { batchSize: 500, force: true })}>
             {busy ? 'Processando...' : 'Recalcular scores'}
           </button>
-          <button disabled={busy || !readiness.readyToActivate || !readiness.hasScoredLeads || !readiness.hasQualifiedLeads || campaign.campaign_status === 'running'} onClick={() => action('activate', { sendBatchSize: 25 })}>
+          <button disabled={busy || !readiness.readyToActivate || campaign.campaign_status === 'running'} onClick={() => action('activate', { sendBatchSize: 25 })}>
             Ativar campanha
           </button>
         </div>
@@ -435,7 +451,7 @@ function PreparationTab({ campaign, readiness, leadStats, busy, setBusy, onChang
   );
 }
 
-function FunnelTab({ leadStats }) {
+function FunnelTab({ campaignId, leadStats, onChanged }) {
   const funnel = [
     ['discovered', leadStats.discovered || 0],
     ['qualified', leadStats.funnel_qualified || 0],
@@ -449,23 +465,26 @@ function FunnelTab({ leadStats }) {
   const max = Math.max(1, ...funnel.map(([, value]) => Number(value || 0)));
 
   return (
-    <section className="card">
-      <h2>Funil da campanha</h2>
-      <p className="hint">As etapas comerciais podem ser atualizadas na ficha do lead. O envio nativo move automaticamente o lead para Contatado.</p>
-      <div style={{ display: 'grid', gap: 12 }}>
-        {funnel.map(([stage, value]) => (
-          <div key={stage}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span>{FUNNEL_LABELS[stage]}</span>
-              <strong>{value}</strong>
+    <div>
+      <section className="card">
+        <h2>Funil da campanha</h2>
+        <p className="hint">O envio nativo move automaticamente o lead para Contatado. Resposta, interesse e conversão podem ser registrados manualmente no painel abaixo.</p>
+        <div style={{ display: 'grid', gap: 12 }}>
+          {funnel.map(([stage, value]) => (
+            <div key={stage}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span>{FUNNEL_LABELS[stage]}</span>
+                <strong>{value}</strong>
+              </div>
+              <div style={{ height: 10, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.max(2, (Number(value || 0) / max) * 100)}%`, background: '#2563eb' }} />
+              </div>
             </div>
-            <div style={{ height: 10, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${Math.max(2, (Number(value || 0) / max) * 100)}%`, background: '#2563eb' }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
+          ))}
+        </div>
+      </section>
+      <FunnelManager campaignId={campaignId} onChanged={onChanged} />
+    </div>
   );
 }
 
