@@ -11,6 +11,13 @@ const FIELDS = [
   'sales_channels','keywords_seed','negative_keywords','generated_keywords','search_notes','profile_completeness'
 ];
 
+const JSON_FIELDS = new Set([
+  'service_regions','subsegments','cnaes','products_services','differentiators','main_competitors',
+  'ideal_customer_profile','target_industries','target_company_sizes','target_roles','buyer_personas',
+  'customer_pains','purchase_triggers','objections','disqualifiers','sales_channels','keywords_seed',
+  'negative_keywords','generated_keywords',
+]);
+
 const TEST_PROFILES = [
   {
     legal_name: 'Nuvem Forte Tecnologia Ltda. - EMPRESA FICTÍCIA',
@@ -85,13 +92,26 @@ const TEST_PROFILES = [
   }
 ];
 
-async function persistProfile(userId, rawProfile) {
+function serializeField(field, value) {
+  if (value == null) return null;
+  if (JSON_FIELDS.has(field)) return JSON.stringify(value);
+  return value;
+}
+
+function buildProfileValues(rawProfile) {
   const profile = normalizeProfile(rawProfile || {});
-  const values = FIELDS.map((field) => profile[field] ?? null);
+  return {
+    profile,
+    values: FIELDS.map((field) => serializeField(field, profile[field] ?? null)),
+  };
+}
+
+async function persistProfile(userId, rawProfile) {
+  const { values } = buildProfileValues(rawProfile);
   const columns = FIELDS.join(', ');
   const placeholders = FIELDS.map((_, i) => `$${i + 2}`).join(', ');
   const updates = FIELDS.map((field) => `${field} = EXCLUDED.${field}`).join(', ');
-  const sql = `INSERT INTO company_profiles (user_id, ${columns}) VALUES ($1, ${placeholders}) ON CONFLICT (user_id) DO UPDATE SET ${updates} RETURNING *`;
+  const sql = `INSERT INTO company_profiles (user_id, ${columns}) VALUES ($1, ${placeholders}) ON CONFLICT (user_id) DO UPDATE SET ${updates}, updated_at = NOW() RETURNING *`;
   const { rows } = await db.query(sql, [userId, ...values]);
   return rows[0];
 }
@@ -100,13 +120,21 @@ async function getProfile(req, res, next) {
   try {
     const { rows } = await db.query('SELECT * FROM company_profiles WHERE user_id = $1', [req.user.id]);
     return res.json(rows[0] || null);
-  } catch (err) { return next(err); }
+  } catch (err) {
+    console.error(`[company-profile] GET user=${req.user?.id || 'unknown'}:`, err.message);
+    return next(err);
+  }
 }
 
 async function upsertProfile(req, res, next) {
   try {
-    return res.json(await persistProfile(req.user.id, req.body || {}));
-  } catch (err) { return next(err); }
+    const saved = await persistProfile(req.user.id, req.body || {});
+    console.log(`[company-profile] saved user=${req.user.id} completeness=${saved.profile_completeness}`);
+    return res.json(saved);
+  } catch (err) {
+    console.error(`[company-profile] SAVE user=${req.user?.id || 'unknown'}:`, err.message);
+    return next(err);
+  }
 }
 
 async function regenerateKeywords(req, res, next) {
@@ -115,11 +143,15 @@ async function regenerateKeywords(req, res, next) {
     if (!current.rows[0]) return res.status(404).json({ error: 'Perfil empresarial ainda não criado.' });
     const profile = normalizeProfile(current.rows[0]);
     const { rows } = await db.query(
-      'UPDATE company_profiles SET generated_keywords = $2, profile_completeness = $3 WHERE user_id = $1 RETURNING *',
+      'UPDATE company_profiles SET generated_keywords = $2::jsonb, profile_completeness = $3, updated_at = NOW() WHERE user_id = $1 RETURNING *',
       [req.user.id, JSON.stringify(profile.generated_keywords), profile.profile_completeness]
     );
+    console.log(`[company-profile] keywords regenerated user=${req.user.id} count=${profile.generated_keywords.length}`);
     return res.json(rows[0]);
-  } catch (err) { return next(err); }
+  } catch (err) {
+    console.error(`[company-profile] KEYWORDS user=${req.user?.id || 'unknown'}:`, err.message);
+    return next(err);
+  }
 }
 
 async function generateTestProfile(req, res, next) {
@@ -130,8 +162,20 @@ async function generateTestProfile(req, res, next) {
       : Math.floor(Math.random() * TEST_PROFILES.length);
     const seed = { ...TEST_PROFILES[index], test_profile: true };
     const saved = await persistProfile(req.user.id, seed);
+    console.log(`[company-profile] test generated user=${req.user.id} index=${index} name=${saved.trade_name} completeness=${saved.profile_completeness}`);
     return res.status(201).json({ ...saved, test_profile: true, test_profile_index: index, available_test_profiles: TEST_PROFILES.length });
-  } catch (err) { return next(err); }
+  } catch (err) {
+    console.error(`[company-profile] GENERATE_TEST user=${req.user?.id || 'unknown'}:`, err.message);
+    return next(err);
+  }
 }
 
-module.exports = { getProfile, upsertProfile, regenerateKeywords, generateTestProfile };
+module.exports = {
+  getProfile,
+  upsertProfile,
+  regenerateKeywords,
+  generateTestProfile,
+  serializeField,
+  buildProfileValues,
+  TEST_PROFILES,
+};
