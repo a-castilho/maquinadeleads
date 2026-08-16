@@ -8,6 +8,7 @@ const controllers = {
   leads: require('../controllers/leadsController'),
   nativeJobs: require('../controllers/nativeJobsController'),
   nativeRecovery: require('../controllers/nativeRecoveryController'),
+  nativePreparation: require('../controllers/nativePreparationController'),
   lifecycle: require('../controllers/campaignLifecycleController'),
   aiKeywords: require('../controllers/aiKeywordsController'),
 };
@@ -20,6 +21,7 @@ const requiredMethods = {
   leads: ['list', 'getOne', 'update', 'remove', 'clearNicheLeads', 'stats', 'bulkUpdate'],
   nativeJobs: ['startDiscovery','startEnrichment','startScoring','startSending','activate','pause','resume','processBatch','list','executions'],
   nativeRecovery: ['recover'],
+  nativePreparation: ['start'],
   lifecycle: ['complete'],
   aiKeywords: ['generate', 'listRuns', 'chat', 'chatHistory', 'clearChat'],
 };
@@ -59,6 +61,7 @@ router.delete('/:nicheId/templates/:id', controllers.templates.remove);
 router.get('/:nicheId/credentials', controllers.credentials.list);
 router.put('/:nicheId/credentials', controllers.credentials.upsert);
 
+router.post('/:nicheId/native/prepare', controllers.nativePreparation.start);
 router.post('/:nicheId/native/discover', controllers.nativeJobs.startDiscovery);
 router.post('/:nicheId/native/enrich', controllers.nativeJobs.startEnrichment);
 router.post('/:nicheId/native/score', controllers.nativeJobs.startScoring);
