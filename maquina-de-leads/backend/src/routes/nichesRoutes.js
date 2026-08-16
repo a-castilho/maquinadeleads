@@ -7,6 +7,7 @@ const controllers = {
   credentials: require('../controllers/credentialsController'),
   leads: require('../controllers/leadsController'),
   nativeJobs: require('../controllers/nativeJobsController'),
+  lifecycle: require('../controllers/campaignLifecycleController'),
 };
 
 const requiredMethods = {
@@ -27,6 +28,7 @@ const requiredMethods = {
     'list',
     'executions',
   ],
+  lifecycle: ['complete'],
 };
 
 for (const [ctrlName, methods] of Object.entries(requiredMethods)) {
@@ -74,6 +76,7 @@ router.post('/:nicheId/native/activate', controllers.nativeJobs.activate);
 router.post('/:nicheId/native/pause', controllers.nativeJobs.pause);
 router.post('/:nicheId/native/resume', controllers.nativeJobs.resume);
 router.post('/:nicheId/native/process', controllers.nativeJobs.processBatch);
+router.post('/:nicheId/native/complete', controllers.lifecycle.complete);
 router.get('/:nicheId/native/jobs', controllers.nativeJobs.list);
 router.get('/:nicheId/native/jobs/:jobId/executions', controllers.nativeJobs.executions);
 
