@@ -1,0 +1,30 @@
+.maps-visual-card { overflow:hidden; }
+.maps-browser-key-panel { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr); gap:18px; padding:14px; margin-bottom:14px; border:1px solid var(--border); border-radius:12px; background:rgba(124,140,255,.055); }
+.maps-browser-key-panel strong { display:block; margin-bottom:5px; }
+.maps-browser-key-row { display:flex; align-items:center; gap:8px; }
+.maps-browser-key-row input { flex:1; min-width:0; }
+.maps-browser-key-toolbar { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:12px; color:var(--muted); font-size:12px; }
+.maps-canvas-wrap { position:relative; min-height:440px; border:1px solid var(--border); border-radius:14px; overflow:hidden; background:rgba(255,255,255,.02); }
+.maps-canvas { width:100%; min-height:440px; height:54vh; max-height:680px; }
+.maps-canvas-wrap.is-locked .maps-canvas { opacity:.18; }
+.maps-canvas-placeholder,.maps-canvas-status { position:absolute; inset:0; display:grid; place-items:center; padding:24px; text-align:center; color:var(--muted); background:linear-gradient(135deg,rgba(14,17,24,.82),rgba(20,24,35,.76)); }
+.maps-canvas-status { inset:auto 14px 14px; min-height:0; display:block; border:1px solid rgba(255,255,255,.12); border-radius:10px; background:rgba(14,17,24,.92); color:#fff; }
+.maps-coordinate-warning { margin:12px 0 0; color:var(--muted); font-size:12px; }
+.maps-info-window { display:grid; gap:7px; min-width:220px; max-width:310px; color:#1d2433; font-size:13px; line-height:1.35; }
+.maps-info-window strong { font-size:15px; color:#111827; }
+.maps-info-window span { color:#4b5563; }
+.maps-info-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:3px; }
+.maps-info-actions button,.maps-info-actions a { border:0; border-radius:8px; padding:7px 9px; font-size:12px; font-weight:700; text-decoration:none; cursor:pointer; }
+.maps-info-actions button { background:#111827; color:#fff; }
+.maps-info-actions a { background:#eef2ff; color:#334155; }
+@media (max-width:900px) {
+  .maps-browser-key-panel { grid-template-columns:1fr; }
+  .maps-browser-key-toolbar { align-items:flex-start; flex-direction:column; }
+  .maps-canvas,.maps-canvas-wrap { min-height:360px; }
+  .maps-canvas { height:50vh; }
+}
+@media (max-width:620px) {
+  .maps-browser-key-row { flex-direction:column; align-items:stretch; }
+  .maps-canvas,.maps-canvas-wrap { min-height:320px; }
+  .maps-canvas { height:46vh; }
+}
