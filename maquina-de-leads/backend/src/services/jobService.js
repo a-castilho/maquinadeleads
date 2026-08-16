@@ -63,19 +63,58 @@ async function getExecutions(jobId, limit = 20) {
 
 async function recoverStaleJobs(staleMinutes = 15) {
   const minutes = Math.max(1, Number(staleMinutes) || 15);
-  const result = await db.query(
-    `UPDATE native_jobs
-        SET status = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'retry' END,
-            run_at = CASE WHEN attempts >= max_attempts THEN run_at ELSE NOW() END,
-            last_error = COALESCE(last_error, 'Job recuperado após lock expirado.'),
-            locked_at = NULL,
-            locked_by = NULL
-      WHERE status = 'processing'
-        AND locked_at < NOW() - ($1::text || ' minutes')::interval
-      RETURNING id, status`,
-    [minutes]
-  );
-  return result.rows;
+  const client = await db.pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const stale = await client.query(
+      `SELECT id
+         FROM native_jobs
+        WHERE status = 'processing'
+          AND locked_at < NOW() - ($1::text || ' minutes')::interval
+        FOR UPDATE`,
+      [minutes]
+    );
+
+    if (!stale.rows.length) {
+      await client.query('COMMIT');
+      return [];
+    }
+
+    const ids = stale.rows.map((item) => item.id);
+
+    await client.query(
+      `UPDATE native_job_executions
+          SET status = 'failed',
+              finished_at = NOW(),
+              error_message = COALESCE(error_message, 'Execução encerrada após expiração do lock.')
+        WHERE job_id = ANY($1::uuid[])
+          AND status = 'processing'`,
+      [ids]
+    );
+
+    const result = await client.query(
+      `UPDATE native_jobs
+          SET status = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'retry' END,
+              run_at = CASE WHEN attempts >= max_attempts THEN run_at ELSE NOW() END,
+              completed_at = CASE WHEN attempts >= max_attempts THEN NOW() ELSE NULL END,
+              last_error = COALESCE(last_error, 'Job recuperado após lock expirado.'),
+              locked_at = NULL,
+              locked_by = NULL
+        WHERE id = ANY($1::uuid[])
+        RETURNING id, status`,
+      [ids]
+    );
+
+    await client.query('COMMIT');
+    return result.rows;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function claimNext(workerId) {
@@ -86,12 +125,17 @@ async function claimNext(workerId) {
     await client.query('BEGIN');
 
     const selected = await client.query(
-      `SELECT *
-         FROM native_jobs
-        WHERE status IN ('pending', 'retry')
-          AND run_at <= NOW()
-        ORDER BY run_at ASC, created_at ASC
-        FOR UPDATE SKIP LOCKED
+      `SELECT j.*
+         FROM native_jobs j
+         LEFT JOIN niches n ON n.id = j.niche_id
+        WHERE j.status IN ('pending', 'retry')
+          AND j.run_at <= NOW()
+          AND (
+            j.niche_id IS NULL
+            OR n.campaign_status NOT IN ('paused', 'completed', 'failed')
+          )
+        ORDER BY j.run_at ASC, j.created_at ASC
+        FOR UPDATE OF j SKIP LOCKED
         LIMIT 1`
     );
 
