@@ -8,9 +8,18 @@ const campaignRunner = require('./services/campaignRunner');
 const workerId = process.env.WORKER_ID || `${os.hostname()}:${process.pid}`;
 const pollIntervalMs = Math.max(250, Number(process.env.JOB_POLL_INTERVAL_MS) || 2000);
 const staleMinutes = Math.max(1, Number(process.env.JOB_STALE_MINUTES) || 15);
+const executionTimeoutMs = Math.max(30000, Number(process.env.JOB_EXECUTION_TIMEOUT_MS) || 120000);
 
 let stopping = false;
 let recoveredOnce = false;
+
+function withTimeout(promise, timeoutMs, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} excedeu ${Math.round(timeoutMs / 1000)}s e foi interrompido para nova tentativa.`)), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 async function processOne() {
   if (!recoveredOnce) {
@@ -25,10 +34,14 @@ async function processOne() {
   if (!claimed) return false;
 
   const { job, execution } = claimed;
-  console.log(`[worker] iniciando ${job.job_type} job=${job.id} tentativa=${job.attempts}`);
+  console.log(`[worker] iniciando ${job.job_type} job=${job.id} tentativa=${job.attempts} timeout=${executionTimeoutMs}ms`);
 
   try {
-    const result = await campaignRunner.run(job);
+    const result = await withTimeout(
+      campaignRunner.run(job),
+      executionTimeoutMs,
+      `${job.job_type} job=${job.id}`
+    );
     await jobService.complete(job.id, execution.id, result);
     console.log(`[worker] concluído ${job.job_type} job=${job.id}`);
   } catch (error) {
@@ -46,9 +59,7 @@ async function loop() {
   while (!stopping) {
     try {
       const processed = await processOne();
-      if (!processed) {
-        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-      }
+      if (!processed) await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
     } catch (error) {
       console.error('[worker] erro no loop:', error);
       await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
@@ -67,7 +78,7 @@ async function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-console.log(`[worker] ativo id=${workerId} poll=${pollIntervalMs}ms`);
+console.log(`[worker] ativo id=${workerId} poll=${pollIntervalMs}ms timeout=${executionTimeoutMs}ms`);
 loop().catch(async (error) => {
   console.error('[worker] falha fatal:', error);
   await pool.end();
