@@ -73,11 +73,16 @@ CREATE TABLE IF NOT EXISTS native_jobs (
   completed_at    TIMESTAMPTZ,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT native_jobs_status_check
-    CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'retry')),
   CONSTRAINT native_jobs_attempts_check
     CHECK (attempts >= 0 AND max_attempts > 0)
 );
+
+-- A constraint é recriada para que instalações que já executaram versões
+-- anteriores da migration também passem a aceitar o estado cancelled.
+ALTER TABLE native_jobs DROP CONSTRAINT IF EXISTS native_jobs_status_check;
+ALTER TABLE native_jobs
+  ADD CONSTRAINT native_jobs_status_check
+  CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'retry', 'cancelled'));
 
 CREATE INDEX IF NOT EXISTS idx_native_jobs_queue
   ON native_jobs (status, run_at, created_at);
