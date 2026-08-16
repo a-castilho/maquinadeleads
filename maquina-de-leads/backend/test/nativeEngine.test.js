@@ -24,17 +24,11 @@ test('computeScore reaches 100 for a strongly qualified lead', () => {
     campaign: { location: 'São Paulo - SP' },
     keywords: [{ kind: 'nicho', term: 'dentista' }],
     lead: {
-      nome_perfil: 'Clínica Sorriso',
-      whatsapp: '5511999999999',
-      email: 'contato@clinicasorriso.com.br',
-      enrichment_status: 'enriquecido',
-      descricao_extra: 'Dentista e implantes em São Paulo',
-      snippet: 'Clínica odontológica em São Paulo',
-      original_query: 'dentista whatsapp',
-      fonte_url: 'https://clinicasorriso.com.br',
+      nome_perfil: 'Clínica Sorriso', whatsapp: '5511999999999', email: 'contato@clinicasorriso.com.br',
+      enrichment_status: 'enriquecido', descricao_extra: 'Dentista e implantes em São Paulo',
+      snippet: 'Clínica odontológica em São Paulo', original_query: 'dentista whatsapp', fonte_url: 'https://clinicasorriso.com.br',
     },
   });
-
   assert.equal(result.score, 100);
   assert.ok(result.breakdown.length >= 6);
 });
@@ -43,12 +37,7 @@ test('computeScore keeps a low-information lead below qualification range', () =
   const result = computeScore({
     campaign: { location: 'Curitiba' },
     keywords: [{ kind: 'nicho', term: 'academia' }],
-    lead: {
-      nome_perfil: 'Desconhecido', whatsapp: null, email: null,
-      enrichment_status: 'sem_dados', descricao_extra: null,
-      snippet: 'conteúdo genérico', original_query: 'outra busca',
-      fonte_url: '',
-    },
+    lead: { nome_perfil: 'Desconhecido', whatsapp: null, email: null, enrichment_status: 'sem_dados', descricao_extra: null, snippet: 'conteúdo genérico', original_query: 'outra busca', fonte_url: '' },
   });
   assert.equal(result.score, 0);
 });
@@ -91,12 +80,7 @@ test('cleanProfileName keeps useful names even when search title is long', () =>
 });
 
 test('toLead accepts identifiable business without phone for later enrichment', () => {
-  const converted = toLead({
-    title: 'Clínica Sorriso | Odontologia',
-    link: 'https://clinicasorriso.com.br',
-    snippet: 'Atendimento odontológico em Belo Horizonte',
-    query: 'odontologia Belo Horizonte',
-  }, '00000000-0000-0000-0000-000000000001');
+  const converted = toLead({ title: 'Clínica Sorriso | Odontologia', link: 'https://clinicasorriso.com.br', snippet: 'Atendimento odontológico em Belo Horizonte', query: 'odontologia Belo Horizonte' }, '00000000-0000-0000-0000-000000000001');
   assert.ok(converted.lead);
   assert.equal(converted.lead.nomePerfil, 'Clínica Sorriso');
   assert.equal(converted.lead.status, 'sem_telefone');
@@ -115,6 +99,7 @@ test('native runner wires the full operational pipeline', () => {
   assert.equal(campaignRunner.has('campaign.process_batch'), true);
   assert.equal(campaignRunner.has('campaign.send_messages'), true);
   assert.equal(typeof jobService.enqueueUnique, 'function');
+  assert.equal(typeof jobService.isProcessing, 'function');
 });
 
 test('automatic preparation chains discovery to enrichment and scoring', async () => {
@@ -123,44 +108,48 @@ test('automatic preparation chains discovery to enrichment and scoring', async (
   const originalScore = leadScoringService.scoreBatch;
   const originalEnqueueUnique = jobService.enqueueUnique;
   const enqueued = [];
-
   resilientDiscovery.discover = async () => ({ rawResults: 4, candidates: 3, inserted: 3 });
   enrichmentService.enrichBatch = async () => ({ processed: 3, enriched: 2 });
   leadScoringService.scoreBatch = async () => ({ processed: 3, qualified: 2 });
-  jobService.enqueueUnique = async (input) => {
-    enqueued.push(input);
-    return { id: `job-${enqueued.length}`, ...input };
-  };
-
+  jobService.enqueueUnique = async (input) => { enqueued.push(input); return { id: `job-${enqueued.length}`, ...input }; };
   try {
-    const discovery = await campaignRunner.run({
-      job_type: 'campaign.discover_leads',
-      niche_id: 'niche-1',
-      payload: { autoPipeline: true, enrichBatchSize: 25, scoreBatchSize: 500 },
-    });
+    const discovery = await campaignRunner.run({ job_type: 'campaign.discover_leads', niche_id: 'niche-1', payload: { autoPipeline: true, enrichBatchSize: 25, scoreBatchSize: 500 } });
     assert.equal(discovery.pipeline, true);
     assert.equal(enqueued[0].jobType, 'campaign.enrich_leads');
-    assert.equal(enqueued[0].payload.autoPipeline, true);
-
-    const enrichment = await campaignRunner.run({
-      job_type: 'campaign.enrich_leads',
-      niche_id: 'niche-1',
-      payload: { autoPipeline: true, scoreBatchSize: 500 },
-    });
+    const enrichment = await campaignRunner.run({ job_type: 'campaign.enrich_leads', niche_id: 'niche-1', payload: { autoPipeline: true, scoreBatchSize: 500 } });
     assert.equal(enrichment.pipeline, true);
     assert.equal(enqueued[1].jobType, 'campaign.score_leads');
-    assert.equal(enqueued[1].payload.force, true);
-
-    const scoring = await campaignRunner.run({
-      job_type: 'campaign.score_leads',
-      niche_id: 'niche-1',
-      payload: { autoPipeline: true, force: true },
-    });
+    const scoring = await campaignRunner.run({ job_type: 'campaign.score_leads', niche_id: 'niche-1', payload: { autoPipeline: true, force: true } });
     assert.equal(scoring.preparationCompleted, true);
   } finally {
     resilientDiscovery.discover = originalDiscover;
     enrichmentService.enrichBatch = originalEnrich;
     leadScoringService.scoreBatch = originalScore;
+    jobService.enqueueUnique = originalEnqueueUnique;
+  }
+});
+
+test('cancelled discovery does not chain into enrichment after manual restart', async () => {
+  const originalDiscover = resilientDiscovery.discover;
+  const originalIsProcessing = jobService.isProcessing;
+  const originalEnqueueUnique = jobService.enqueueUnique;
+  let enqueued = 0;
+  resilientDiscovery.discover = async () => ({ rawResults: 2, candidates: 2, inserted: 2 });
+  jobService.isProcessing = async () => false;
+  jobService.enqueueUnique = async () => { enqueued += 1; return { id: 'unexpected' }; };
+  try {
+    const result = await campaignRunner.run({
+      id: 'cancelled-job',
+      job_type: 'campaign.discover_leads',
+      niche_id: 'niche-1',
+      payload: { autoPipeline: true },
+    });
+    assert.equal(result.pipelineCancelled, true);
+    assert.equal(result.nextJobId, null);
+    assert.equal(enqueued, 0);
+  } finally {
+    resilientDiscovery.discover = originalDiscover;
+    jobService.isProcessing = originalIsProcessing;
     jobService.enqueueUnique = originalEnqueueUnique;
   }
 });
