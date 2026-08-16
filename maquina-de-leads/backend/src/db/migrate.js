@@ -9,6 +9,7 @@ async function migrate() {
     'company_profile.sql',
     'ai_keyword_intelligence.sql',
     'ai_keyword_chat.sql',
+    'google_maps_leads.sql',
   ];
 
   try {
