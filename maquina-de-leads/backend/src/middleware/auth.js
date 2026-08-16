@@ -10,7 +10,12 @@ function requireAuth(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload;
+    if (!payload?.sub) {
+      return res.status(401).json({ error: 'Token sem identificador de usuário.' });
+    }
+
+    // Compatibilidade entre módulos novos (sub) e legados (id).
+    req.user = { ...payload, id: payload.sub };
     return next();
   } catch (err) {
     return res.status(401).json({ error: 'Token inválido ou expirado.' });
