@@ -18,13 +18,19 @@ export default function CampaignDetail() {
   }
 
   useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    const active = data?.jobs?.some(j => ['queued','running','retry'].includes(j.status));
+    if (!active) return undefined;
+    const timer = setInterval(load, 3000);
+    return () => clearInterval(timer);
+  }, [id, data?.jobs]);
 
   async function runCampaign() {
     setRunning(true); setError('');
     try {
       await api.post(`/campaigns/${id}/run`);
       await load();
-    } catch (err) { setError(err.response?.data?.error || 'Falha ao executar a busca.'); }
+    } catch (err) { setError(err.response?.data?.error || 'Falha ao enfileirar a busca.'); }
     finally { setRunning(false); }
   }
 
@@ -41,6 +47,7 @@ export default function CampaignDetail() {
 
   if (!data) return <div className="page">{error || 'Carregando...'}</div>;
   const { campaign, leads, jobs } = data;
+  const hasActiveJob = jobs.some(j => ['queued','running','retry'].includes(j.status));
 
   return (
     <div className="page">
@@ -57,7 +64,7 @@ export default function CampaignDetail() {
         <textarea rows="4" value={(campaign.strategy?.keywords || []).join('\n')} onChange={e => setData({...data, campaign:{...campaign, strategy:{...campaign.strategy, keywords:e.target.value.split('\n').map(v=>v.trim()).filter(Boolean)}}})} />
         <label>Mensagem inicial</label>
         <textarea rows="5" value={campaign.message_template || ''} onChange={e => setData({...data, campaign:{...campaign, message_template:e.target.value}})} />
-        <div className="actions"><button onClick={saveStrategy}>Salvar preparação</button><button onClick={runCampaign} disabled={running}>{running ? 'Buscando leads...' : 'Executar busca agora'}</button></div>
+        <div className="actions"><button onClick={saveStrategy}>Salvar preparação</button><button onClick={runCampaign} disabled={running || hasActiveJob}>{hasActiveJob ? 'Execução em andamento...' : running ? 'Enfileirando...' : 'Executar busca agora'}</button></div>
       </section>
 
       <section className="card">
