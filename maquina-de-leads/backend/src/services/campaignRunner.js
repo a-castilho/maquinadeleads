@@ -1,4 +1,5 @@
 const leadDiscoveryService = require('./leadDiscoveryService');
+const messagingService = require('./messagingService');
 
 class CampaignRunner {
   constructor() {
@@ -40,6 +41,11 @@ runner.register('system.noop', async ({ payload }) => ({
 runner.register('campaign.discover_leads', async ({ nicheId, payload }) => {
   if (!nicheId) throw new Error('Job de descoberta sem niche_id.');
   return leadDiscoveryService.discover(nicheId, payload);
+});
+
+runner.register('campaign.send_messages', async ({ nicheId, payload }) => {
+  if (!nicheId) throw new Error('Job de envio sem niche_id.');
+  return messagingService.sendBatch(nicheId, payload);
 });
 
 module.exports = runner;
