@@ -39,6 +39,7 @@ jobs:
       - run: npm ci
       - run: npm run migrate
       - run: node --check src/server.js
+      - run: node --check src/worker.js
       - run: node --check src/controllers/campaignsController.js
       - run: node --check src/services/campaignService.js
       - run: node --check src/routes/campaignRoutes.js
