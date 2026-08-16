@@ -7,6 +7,7 @@ const controllers = {
   credentials: require('../controllers/credentialsController'),
   agents: require('../controllers/agentsController'),
   leads: require('../controllers/leadsController'),
+  nativeJobs: require('../controllers/nativeJobsController'),
 };
 
 // Verifica TODAS as funcoes
@@ -17,6 +18,7 @@ const requiredMethods = {
   credentials: ['list', 'upsert'],
   agents: ['createOrUpdateAgent', 'resync', 'runNow', 'toggleActive', 'list', 'remove', 'listExecutions'],
   leads: ['list', 'getOne', 'update', 'remove', 'clearNicheLeads', 'stats', 'bulkUpdate'],
+  nativeJobs: ['startDiscovery', 'list', 'executions'],
 };
 
 for (const [ctrlName, methods] of Object.entries(requiredMethods)) {
@@ -54,7 +56,12 @@ router.delete('/:nicheId/templates/:id', controllers.templates.remove);
 router.get('/:nicheId/credentials', controllers.credentials.list);
 router.put('/:nicheId/credentials', controllers.credentials.upsert);
 
-// Agentes n8n
+// Motor nativo (migração gradual do n8n)
+router.post('/:nicheId/native/discover', controllers.nativeJobs.startDiscovery);
+router.get('/:nicheId/native/jobs', controllers.nativeJobs.list);
+router.get('/:nicheId/native/jobs/:jobId/executions', controllers.nativeJobs.executions);
+
+// Agentes n8n legados — mantidos durante a migração
 router.get('/:nicheId/agents', controllers.agents.list);
 router.post('/:nicheId/agents', controllers.agents.createOrUpdateAgent);
 router.post('/:nicheId/agents/:id/resync', controllers.agents.resync);
