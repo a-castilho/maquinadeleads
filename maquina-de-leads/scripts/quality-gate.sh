@@ -30,13 +30,15 @@ echo "MIGRATIONS_OK"
 
 docker compose exec -T backend sh -lc '
 set -e
-find src -type f -name "*.js" -print0 |
+find src test -type f -name "*.js" -print0 |
 while IFS= read -r -d "" file; do
     node --check "$file" >/dev/null
 done
 '
-
 echo "BACKEND_SYNTAX_OK"
+
+docker compose exec -T backend npm test
+echo "BACKEND_TESTS_OK"
 
 docker compose exec -T frontend npm run build
 echo "FRONTEND_BUILD_OK"
