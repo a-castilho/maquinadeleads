@@ -98,6 +98,7 @@ export default function LeadsManager({ nicheId }) {
     try {
       await api.put(`/niches/${nicheId}/leads/${editLead.id}`, {
         nome_perfil: editLead.nome_perfil,
+        phone: editLead.phone,
         whatsapp: editLead.whatsapp,
         status: editLead.status,
         observacao: editLead.observacao,
@@ -173,7 +174,7 @@ export default function LeadsManager({ nicheId }) {
           <option value="">Todas as fontes</option>
           {sources.map((source) => <option key={source} value={source}>{String(source).slice(0, 70)}</option>)}
         </select>
-        <input type="search" placeholder="Buscar nome, WhatsApp ou texto..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+        <input type="search" placeholder="Buscar nome, telefone, WhatsApp ou texto..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
         <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
           {[10,25,50,100].map((value) => <option key={value} value={value}>{value} por página</option>)}
         </select>
@@ -195,19 +196,19 @@ export default function LeadsManager({ nicheId }) {
         <table className="data-table">
           <thead><tr>
             <th><input type="checkbox" checked={leads.length > 0 && selectedIds.length === leads.length} onChange={toggleAll} /></th>
-            <th>Nome</th><th>WhatsApp</th><th>Score</th><th>Status</th><th>Query</th><th>Fonte</th><th>Data</th><th>Ações</th>
+            <th>Nome</th><th>Contato</th><th>Score</th><th>Status</th><th>Query</th><th>Fonte</th><th>Data</th><th>Ações</th>
           </tr></thead>
           <tbody>
             {loading && leads.length === 0 ? <tr><td colSpan="9">Carregando...</td></tr> : leads.length === 0 ? <tr><td colSpan="9">Nenhum lead encontrado.</td></tr> : leads.map((lead) => {
               const info = meta(lead.status);
               return <tr key={lead.id}>
                 <td><input type="checkbox" checked={selectedIds.includes(lead.id)} onChange={() => toggle(lead.id)} /></td>
-                <td><strong>{lead.nome_perfil || 'Sem nome'}</strong></td>
-                <td>{lead.whatsapp ? <a href={`https://wa.me/${lead.whatsapp}`} target="_blank" rel="noreferrer">{lead.whatsapp}</a> : '—'}</td>
+                <td><strong>{lead.nome_perfil || 'Sem nome'}</strong>{lead.source_category === 'google_maps' && <small style={{display:'block',color:'var(--accent-2)'}}>Google Maps</small>}</td>
+                <td>{lead.whatsapp ? <a href={`https://wa.me/${lead.whatsapp}`} target="_blank" rel="noreferrer">{lead.whatsapp}</a> : (lead.phone || '—')}</td>
                 <td><strong>{lead.lead_score ?? '—'}</strong></td>
                 <td><span className={`status-token ${info.tone}`}>{info.label}</span></td>
                 <td title={lead.original_query || ''}>{String(lead.original_query || '—').slice(0, 45)}</td>
-                <td>{lead.fonte_url ? <a href={lead.fonte_url} target="_blank" rel="noreferrer">abrir</a> : '—'}</td>
+                <td>{lead.google_maps_url ? <a href={lead.google_maps_url} target="_blank" rel="noreferrer">Maps</a> : lead.fonte_url ? <a href={lead.fonte_url} target="_blank" rel="noreferrer">abrir</a> : '—'}</td>
                 <td>{formatDate(lead.created_at)}</td>
                 <td><div style={{display:'flex',gap:5}}>
                   <button className="compact-button" onClick={() => setDetailLead(lead)}>Ver</button>
@@ -227,13 +228,14 @@ export default function LeadsManager({ nicheId }) {
 
       {detailLead && <Modal title="Detalhes do lead" onClose={() => setDetailLead(null)}>
         <div className="detail-grid">
-          <Detail label="Nome" value={detailLead.nome_perfil} /><Detail label="WhatsApp" value={detailLead.whatsapp} /><Detail label="E-mail" value={detailLead.email} /><Detail label="Score" value={detailLead.lead_score} /><Detail label="Etapa" value={detailLead.funnel_stage} /><Detail label="Status" value={meta(detailLead.status).label} /><Detail label="Query" value={detailLead.original_query} /><Detail label="Observação" value={detailLead.observacao} />
+          <Detail label="Nome" value={detailLead.nome_perfil} /><Detail label="Telefone" value={detailLead.phone} /><Detail label="WhatsApp" value={detailLead.whatsapp} /><Detail label="E-mail" value={detailLead.email} /><Detail label="Score" value={detailLead.lead_score} /><Detail label="Etapa" value={detailLead.funnel_stage} /><Detail label="Status" value={meta(detailLead.status).label} /><Detail label="Fonte" value={detailLead.source_category} /><Detail label="Nota Google" value={detailLead.google_rating} /><Detail label="Avaliações Google" value={detailLead.google_reviews} /><Detail label="Query" value={detailLead.original_query} /><Detail label="Observação" value={detailLead.observacao} />
         </div>
       </Modal>}
 
       {editLead && <Modal title="Editar lead" onClose={() => setEditLead(null)}>
         <div className="stacked-form">
           <input value={editLead.nome_perfil || ''} onChange={(e) => setEditLead({ ...editLead, nome_perfil: e.target.value })} placeholder="Nome" />
+          <input value={editLead.phone || ''} onChange={(e) => setEditLead({ ...editLead, phone: e.target.value })} placeholder="Telefone" />
           <input value={editLead.whatsapp || ''} onChange={(e) => setEditLead({ ...editLead, whatsapp: e.target.value })} placeholder="WhatsApp" />
           <select value={editLead.status || 'pendente'} onChange={(e) => setEditLead({ ...editLead, status: e.target.value })}><option value="pendente">Pendente</option><option value="enviado">Enviado</option><option value="erro">Erro</option><option value="sem_telefone">Sem telefone</option></select>
           <textarea rows="4" value={editLead.observacao || ''} onChange={(e) => setEditLead({ ...editLead, observacao: e.target.value })} placeholder="Observação" />
