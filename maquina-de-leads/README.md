@@ -1,77 +1,100 @@
 # Máquina de Leads
 
-Sistema multi-nicho de prospecção e envio de leads via WhatsApp: raspagem por
-Google dorking (Serper/SerpAPI) + envio via Evolution API, orquestrado por
-workflows n8n criados/ativados automaticamente pelo dashboard.
+Plataforma de prospecção autônoma orientada a **campanhas**. O fluxo principal não depende de n8n.
 
-## Como os fluxos n8n originais foram generalizados
+## Arquitetura atual
 
-Os dois fluxos que você já tinha (`SerpDevRaspagem` e `Envio v4 FINAL`) eram
-fixos para o nicho de música (TocaAí): a lista de nichos estava hardcoded no
-node `Gerador de Matriz`, a mensagem estava hardcoded no `formataCel`, e a
-tabela `leads_prospeccao` não distinguia nichos.
+- Frontend: React + Vite
+- Backend: Node.js + Express
+- Banco: PostgreSQL
+- Descoberta de leads: SearXNG
+- Orquestração: nativa no backend
+- Estado de execução: `campaign_jobs` no PostgreSQL
+- Leads: deduplicação, score e funil por campanha
 
-Neste projeto:
+O código antigo de integração com n8n permanece apenas como legado para compatibilidade e não participa do fluxo principal nem do Docker Compose.
 
-- `backend/src/templates/scrapingTemplate.js` e `sendingTemplate.js` recriam a
-  mesma lógica dos dois workflows, mas como **funções que recebem config** (
-  palavras-chave, mensagem, credenciais) vindas do Postgres e devolvem o JSON
-  do workflow já parametrizado.
-- `backend/src/services/n8nService.js` chama a **API REST do n8n**
-  (`/api/v1/workflows`) para criar, atualizar, ativar/desativar e remover
-  esses workflows — isso é o que o dashboard aciona quando você clica em
-  "Criar agente".
-- A tabela `leads` agora tem `niche_id`, então o mesmo Postgres serve
-  qualquer nicho, e cada workflow gerado já filtra/grava só os leads do seu
-  nicho.
+## Subir o ambiente inteiro
 
-## Setup
+```bash
+cd ~/Documents/maquinadeleads/maquina-de-leads
+docker compose down --remove-orphans
+docker compose up -d --build
+docker compose ps
+```
 
-### Requisitos
-- Node.js 18+
-- PostgreSQL 14+
-- Uma instância do n8n com a **API REST habilitada** e uma API key gerada
-  (Settings → API no n8n)
-- Uma conta Serper (ou SerpAPI) e uma instância Evolution API já rodando
-  (você já tem ambas, pelos fluxos enviados)
+URLs:
 
-### Backend
+- Frontend: http://localhost:5173
+- Backend: http://localhost:4000
+- Health: http://localhost:4000/health
+- SearXNG: http://localhost:8080
+- PostgreSQL: localhost:5432
+
+O container `migrate` deve terminar como `Exited (0)`; isso significa que as migrações foram aplicadas com sucesso.
+
+## Fluxo do produto
+
+1. Criar conta e entrar.
+2. Criar uma campanha informando nome, nicho, região, oferta e objetivo.
+3. O backend gera estratégia e palavras-chave iniciais.
+4. Revisar palavras-chave e mensagem.
+5. Executar a campanha.
+6. O backend consulta o SearXNG, normaliza resultados, extrai contatos, calcula score e deduplica leads.
+7. Acompanhar os leads no funil.
+8. Alterar cada lead entre: descoberto, qualificado, pronto para contato, contatado, respondeu, interessado, convertido ou descartado.
+9. Acompanhar o histórico de jobs e erros da campanha.
+
+## Banco de dados
+
+O schema legado é preservado. A migração `native_campaigns.sql` acrescenta:
+
+- `campaigns`
+- `campaign_jobs`
+- `campaign_messages`
+- `campaign_id`, `score`, `stage` e `dedupe_key` em `leads`
+
+As migrações são idempotentes e executadas pelo serviço `migrate` antes do backend iniciar.
+
+## Segurança
+
+Nunca versionar `.env` ou credenciais reais. Em produção defina pelo menos:
+
+```env
+JWT_SECRET=<segredo aleatorio com 32+ caracteres>
+POSTGRES_USER=leads_user
+POSTGRES_PASSWORD=<senha forte>
+POSTGRES_DB=maquina_de_leads
+FRONTEND_URL=https://seu-frontend
+```
+
+O backend usa Helmet, limite de payload, CORS e rate limiting nos endpoints de autenticação.
+
+## Desenvolvimento local sem Docker
+
+Backend:
+
 ```bash
 cd backend
-cp .env.example .env   # preencha DATABASE_URL, JWT_SECRET, N8N_BASE_URL, N8N_API_KEY
-npm install
-npm run migrate        # cria as tabelas no Postgres
-npm run dev            # http://localhost:4000
+npm ci
+npm run migrate
+npm start
 ```
 
-### Frontend
+Frontend:
+
 ```bash
 cd frontend
-npm install
-npm run dev             # http://localhost:5173
+npm ci
+npm run dev -- --host 0.0.0.0
 ```
 
-## Fluxo de uso no dashboard
+## CI
 
-1. Criar conta / login
-2. Criar um **nicho** (ex: "Odontologia", "Imóveis", "Academias")
-3. Na aba **Palavras-chave**: adicionar termos de nicho (ex: "dentista",
-   "clínica odontológica") e termos de contexto (ex: "whatsapp", "agende sua
-   consulta")
-4. Na aba **Mensagem**: escrever o template de WhatsApp usando `{{nome}}`
-5. Na aba **Credenciais**: cadastrar a chave Serper, a Evolution API
-   (base_url + apikey + nome da instância) e, se quiser reaproveitar uma
-   credencial Postgres já existente no n8n, o ID dela
-6. Na aba **Agentes**: clicar em "Criar agente" para Raspagem e para Envio —
-   isso cria os dois workflows no n8n via API e permite ativar/desativar
-   direto pelo dashboard
-7. Na aba **Leads**: acompanhar o que foi coletado e o status de envio
+O workflow `.github/workflows/ci.yml` valida:
 
-## Observação sobre a credencial Postgres no n8n
-
-A API pública do n8n não cria *credenciais* (usuário/senha de conexões) por
-segurança — só *workflows*. Por isso, a credencial Postgres precisa existir
-previamente no n8n (você provavelmente já tem uma, do fluxo original) e você
-só informa o **ID dela** no dashboard, na aba Credenciais → provider
-"Postgres (credencial do n8n)". O backend referencia esse ID nos nodes
-Postgres do workflow gerado.
+- instalação limpa do backend;
+- migrações PostgreSQL;
+- sintaxe dos módulos críticos;
+- instalação limpa do frontend;
+- build de produção do Vite.
