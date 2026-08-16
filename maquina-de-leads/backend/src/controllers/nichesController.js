@@ -11,11 +11,19 @@ function slugify(text) {
     .replace(/(^-|-$)/g, '');
 }
 
+function normalizeMinLeadScore(value, fallback = 55) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) return null;
+  return parsed;
+}
+
 async function list(req, res) {
   try {
     const result = await db.query(
       `SELECT n.*,
               (SELECT COUNT(*)::int FROM leads l WHERE l.niche_id = n.id) AS leads_count,
+              (SELECT COUNT(*)::int FROM leads l WHERE l.niche_id = n.id AND l.lead_score >= n.min_lead_score) AS qualified_leads_count,
               (SELECT COUNT(*)::int FROM native_jobs j WHERE j.niche_id = n.id AND j.status IN ('pending','processing','retry')) AS active_jobs
          FROM niches n
         WHERE n.user_id = $1
@@ -37,10 +45,16 @@ async function create(req, res) {
     offer,
     targetAudience,
     objective,
+    minLeadScore,
     credentials: initialCreds,
   } = req.body;
 
   if (!name) return res.status(400).json({ error: 'Nome da campanha é obrigatório.' });
+
+  const normalizedScore = normalizeMinLeadScore(minLeadScore, 55);
+  if (normalizedScore === null) {
+    return res.status(400).json({ error: 'Score mínimo deve ser um inteiro entre 0 e 100.' });
+  }
 
   const slug = `${slugify(name)}-${Date.now().toString(36)}`;
   const client = await db.pool.connect();
@@ -50,8 +64,8 @@ async function create(req, res) {
 
     const nicheResult = await client.query(
       `INSERT INTO niches
-         (user_id, name, slug, description, location, offer, target_audience, objective, campaign_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft')
+         (user_id, name, slug, description, location, offer, target_audience, objective, campaign_status, min_lead_score)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9)
        RETURNING *`,
       [
         req.user.sub,
@@ -62,12 +76,11 @@ async function create(req, res) {
         offer || null,
         targetAudience || null,
         objective || null,
+        normalizedScore,
       ]
     );
     const niche = nicheResult.rows[0];
 
-    // O fluxo principal usa apenas provedores nativos. Postgres pertence à infraestrutura,
-    // não é mais credencial da campanha, e n8n não é criado automaticamente.
     const defaultProviders = ['serper', 'evolution_api'];
     for (const provider of defaultProviders) {
       const credData = initialCreds?.[provider] || {};
@@ -104,7 +117,9 @@ async function getOne(req, res) {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Campanha não encontrada.' });
 
-    const [credsResult, jobsResult, leadsResult] = await Promise.all([
+    const campaign = result.rows[0];
+
+    const [credsResult, jobsResult, leadsResult, keywordResult, templateResult, outboxResult] = await Promise.all([
       db.query(
         `SELECT id, niche_id, provider, base_url, extra_config, created_at,
                 (api_key IS NOT NULL AND api_key <> '') AS has_api_key
@@ -119,7 +134,7 @@ async function getOne(req, res) {
            FROM native_jobs
           WHERE niche_id = $1
           ORDER BY created_at DESC
-          LIMIT 20`,
+          LIMIT 30`,
         [req.params.id]
       ),
       db.query(
@@ -127,18 +142,79 @@ async function getOne(req, res) {
                 COUNT(*) FILTER (WHERE status = 'pendente')::int AS pendentes,
                 COUNT(*) FILTER (WHERE status = 'enviado')::int AS enviados,
                 COUNT(*) FILTER (WHERE status = 'erro')::int AS erros,
-                COUNT(*) FILTER (WHERE whatsapp IS NOT NULL)::int AS com_whatsapp
+                COUNT(*) FILTER (WHERE whatsapp IS NOT NULL)::int AS com_whatsapp,
+                COUNT(*) FILTER (WHERE scored_at IS NOT NULL)::int AS scored,
+                COUNT(*) FILTER (WHERE lead_score >= $2)::int AS qualified,
+                COALESCE(ROUND(AVG(lead_score) FILTER (WHERE lead_score IS NOT NULL)), 0)::int AS average_score,
+                COUNT(*) FILTER (WHERE funnel_stage = 'discovered')::int AS discovered,
+                COUNT(*) FILTER (WHERE funnel_stage = 'qualified')::int AS funnel_qualified,
+                COUNT(*) FILTER (WHERE funnel_stage = 'ready_for_contact')::int AS ready_for_contact,
+                COUNT(*) FILTER (WHERE funnel_stage = 'contacted')::int AS contacted,
+                COUNT(*) FILTER (WHERE funnel_stage = 'responded')::int AS responded,
+                COUNT(*) FILTER (WHERE funnel_stage = 'interested')::int AS interested,
+                COUNT(*) FILTER (WHERE funnel_stage = 'converted')::int AS converted,
+                COUNT(*) FILTER (WHERE funnel_stage = 'discarded')::int AS discarded
            FROM leads
+          WHERE niche_id = $1`,
+        [req.params.id, Number(campaign.min_lead_score || 55)]
+      ),
+      db.query(
+        `SELECT COUNT(*)::int AS total
+           FROM keywords
+          WHERE niche_id = $1 AND kind = 'nicho' AND active = true`,
+        [req.params.id]
+      ),
+      db.query(
+        `SELECT COUNT(*)::int AS total
+           FROM message_templates
+          WHERE niche_id = $1 AND active = true`,
+        [req.params.id]
+      ),
+      db.query(
+        `SELECT COUNT(*) FILTER (WHERE status = 'unknown')::int AS unknown,
+                COUNT(*) FILTER (WHERE status = 'sent')::int AS sent
+           FROM native_message_outbox
           WHERE niche_id = $1`,
         [req.params.id]
       ),
     ]);
 
+    const credentials = credsResult.rows;
+    const leadStats = leadsResult.rows[0];
+    const evolution = credentials.find((item) => item.provider === 'evolution_api');
+    const profileComplete = Boolean(
+      campaign.name && (campaign.description || campaign.offer) && campaign.objective
+    );
+
+    const readiness = {
+      profileComplete,
+      hasKeywords: keywordResult.rows[0].total > 0,
+      hasMessage: templateResult.rows[0].total > 0,
+      hasLeads: leadStats.total > 0,
+      hasScoredLeads: leadStats.scored > 0,
+      hasQualifiedLeads: leadStats.qualified > 0,
+      hasEvolution: Boolean(evolution?.has_api_key && evolution?.base_url),
+    };
+    readiness.readyToActivate = Boolean(
+      readiness.profileComplete &&
+      readiness.hasKeywords &&
+      readiness.hasMessage &&
+      readiness.hasLeads &&
+      readiness.hasScoredLeads &&
+      readiness.hasQualifiedLeads &&
+      readiness.hasEvolution
+    );
+
     res.json({
-      niche: result.rows[0],
-      credentials: credsResult.rows,
+      niche: campaign,
+      credentials,
       jobs: jobsResult.rows,
-      leadStats: leadsResult.rows[0],
+      leadStats: {
+        ...leadStats,
+        outbox_unknown: outboxResult.rows[0]?.unknown || 0,
+        outbox_sent: outboxResult.rows[0]?.sent || 0,
+      },
+      readiness,
     });
   } catch (err) {
     console.error('[niches.getOne] Erro:', err.message);
@@ -156,8 +232,16 @@ async function update(req, res) {
       offer,
       targetAudience,
       objective,
-      campaignStatus,
+      minLeadScore,
     } = req.body;
+
+    let normalizedScore = null;
+    if (minLeadScore !== undefined) {
+      normalizedScore = normalizeMinLeadScore(minLeadScore, 55);
+      if (normalizedScore === null) {
+        return res.status(400).json({ error: 'Score mínimo deve ser um inteiro entre 0 e 100.' });
+      }
+    }
 
     const result = await db.query(
       `UPDATE niches SET
@@ -168,7 +252,7 @@ async function update(req, res) {
          offer = COALESCE($5, offer),
          target_audience = COALESCE($6, target_audience),
          objective = COALESCE($7, objective),
-         campaign_status = COALESCE($8, campaign_status)
+         min_lead_score = COALESCE($8, min_lead_score)
        WHERE id = $9 AND user_id = $10
        RETURNING *`,
       [
@@ -179,7 +263,7 @@ async function update(req, res) {
         offer,
         targetAudience,
         objective,
-        campaignStatus,
+        normalizedScore,
         req.params.id,
         req.user.sub,
       ]
