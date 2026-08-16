@@ -15,7 +15,18 @@ const requiredMethods = {
   templates: ['list', 'create', 'update', 'remove'],
   credentials: ['list', 'upsert'],
   leads: ['list', 'getOne', 'update', 'remove', 'clearNicheLeads', 'stats', 'bulkUpdate'],
-  nativeJobs: ['startDiscovery', 'startEnrichment', 'startSending', 'list', 'executions'],
+  nativeJobs: [
+    'startDiscovery',
+    'startEnrichment',
+    'startScoring',
+    'startSending',
+    'activate',
+    'pause',
+    'resume',
+    'processBatch',
+    'list',
+    'executions',
+  ],
 };
 
 for (const [ctrlName, methods] of Object.entries(requiredMethods)) {
@@ -54,10 +65,15 @@ router.delete('/:nicheId/templates/:id', controllers.templates.remove);
 router.get('/:nicheId/credentials', controllers.credentials.list);
 router.put('/:nicheId/credentials', controllers.credentials.upsert);
 
-// Execução nativa
+// Execução nativa e ciclo de vida da campanha
 router.post('/:nicheId/native/discover', controllers.nativeJobs.startDiscovery);
 router.post('/:nicheId/native/enrich', controllers.nativeJobs.startEnrichment);
+router.post('/:nicheId/native/score', controllers.nativeJobs.startScoring);
 router.post('/:nicheId/native/send', controllers.nativeJobs.startSending);
+router.post('/:nicheId/native/activate', controllers.nativeJobs.activate);
+router.post('/:nicheId/native/pause', controllers.nativeJobs.pause);
+router.post('/:nicheId/native/resume', controllers.nativeJobs.resume);
+router.post('/:nicheId/native/process', controllers.nativeJobs.processBatch);
 router.get('/:nicheId/native/jobs', controllers.nativeJobs.list);
 router.get('/:nicheId/native/jobs/:jobId/executions', controllers.nativeJobs.executions);
 
