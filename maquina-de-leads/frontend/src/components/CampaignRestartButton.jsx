@@ -36,11 +36,20 @@ export default function CampaignRestartButton() {
   }
 
   return (
-    <div className="campaign-restart-control">
-      <button type="button" className="campaign-restart-button" onClick={restart} disabled={busy}>
+    <div style={{ position: 'sticky', top: 8, zIndex: 25, display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center', pointerEvents: 'none', padding: '8px 18px 0' }}>
+      {message && (
+        <div style={{ pointerEvents: 'auto', maxWidth: 420, padding: '9px 12px', borderRadius: 10, border: '1px solid rgba(98,215,255,.24)', background: 'rgba(20,31,46,.94)', color: '#dcefff', fontSize: 12 }}>
+          {message}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={restart}
+        disabled={busy}
+        style={{ pointerEvents: 'auto', background: 'rgba(246,185,77,.14)', border: '1px solid rgba(246,185,77,.32)', color: '#ffd88a', boxShadow: '0 8px 28px rgba(0,0,0,.22)' }}
+      >
         {busy ? 'Reiniciando...' : '↻ Reiniciar busca'}
       </button>
-      {message && <div className="campaign-restart-message">{message}</div>}
     </div>
   );
 }
