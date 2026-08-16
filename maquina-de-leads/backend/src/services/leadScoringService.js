@@ -19,6 +19,7 @@ function computeScore({ lead, campaign, keywords }) {
   const add = (points, reason) => { score += points; breakdown.push({ points, reason }); };
 
   if (lead.whatsapp) add(35, 'WhatsApp disponível');
+  else if (lead.phone) add(20, 'Telefone disponível');
   if (lead.email) add(10, 'E-mail disponível');
 
   const name = String(lead.nome_perfil || '').trim();
@@ -29,6 +30,8 @@ function computeScore({ lead, campaign, keywords }) {
 
   const source = String(lead.fonte_url || '').trim();
   if (/^https?:\/\//i.test(source)) add(5, 'Presença digital identificada');
+  if (lead.source_category === 'google_maps' || lead.google_place_id) add(5, 'Empresa validada no Google Maps');
+  if (Number(lead.google_reviews || 0) >= 10) add(5, 'Google Maps com avaliações');
 
   const haystack = normalizeText([
     lead.nome_perfil, lead.snippet, lead.descricao_extra, lead.original_query, lead.fonte_url,
@@ -61,9 +64,10 @@ async function scoreBatch(nicheId, options = {}) {
   const force = Boolean(options.force);
 
   const leads = (await db.query(
-    `SELECT id, nome_perfil, whatsapp, email, snippet, fonte_url,
+    `SELECT id, nome_perfil, phone, whatsapp, email, snippet, fonte_url,
             original_query, descricao_extra, enrichment_status,
-            funnel_stage, scored_at, updated_at
+            funnel_stage, scored_at, updated_at, source_category,
+            google_place_id, google_reviews
        FROM leads
       WHERE niche_id = $1
         AND ($3::boolean = true OR scored_at IS NULL OR updated_at > scored_at)
