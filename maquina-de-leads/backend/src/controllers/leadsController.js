@@ -43,12 +43,13 @@ async function list(req, res) {
     }
     if (fonte) {
       params.push(`%${fonte}%`);
-      conditions.push(`l.fonte_url ILIKE $${params.length}`);
+      conditions.push(`(l.fonte_url ILIKE $${params.length} OR l.source_category ILIKE $${params.length})`);
     }
     if (search) {
       params.push(`%${search}%`);
       conditions.push(`(
         l.nome_perfil ILIKE $${params.length}
+        OR l.phone ILIKE $${params.length}
         OR l.whatsapp ILIKE $${params.length}
         OR l.email ILIKE $${params.length}
         OR l.snippet ILIKE $${params.length}
@@ -76,7 +77,11 @@ async function list(req, res) {
         params
       ),
       db.query(
-        `SELECT DISTINCT fonte_url FROM leads WHERE niche_id = $1 AND fonte_url IS NOT NULL LIMIT 20`,
+        `SELECT DISTINCT COALESCE(NULLIF(source_category, ''), fonte_url) AS fonte
+           FROM leads
+          WHERE niche_id = $1
+            AND COALESCE(NULLIF(source_category, ''), fonte_url) IS NOT NULL
+          LIMIT 20`,
         [nicheId]
       )
     ]);
@@ -87,7 +92,7 @@ async function list(req, res) {
       page,
       pageSize,
       totalPages: Math.ceil(countResult.rows[0].total / pageSize),
-      fontes: sourcesResult.rows.map((row) => row.fonte_url),
+      fontes: sourcesResult.rows.map((row) => row.fonte),
     });
   } catch (err) {
     console.error('[leads.list] Erro:', err.message);
@@ -137,7 +142,7 @@ async function getOne(req, res) {
 
 async function update(req, res) {
   const { nicheId, id } = req.params;
-  const { nome_perfil, whatsapp, status, observacao, funnelStage } = req.body;
+  const { nome_perfil, phone, whatsapp, status, observacao, funnelStage } = req.body;
 
   if (funnelStage !== undefined && !FUNNEL_STAGES.has(funnelStage)) {
     return res.status(400).json({ error: 'Etapa de funil inválida.' });
@@ -151,14 +156,15 @@ async function update(req, res) {
     const result = await db.query(
       `UPDATE leads SET
          nome_perfil = COALESCE($1, nome_perfil),
-         whatsapp = COALESCE($2, whatsapp),
-         status = COALESCE($3, status),
-         observacao = COALESCE($4, observacao),
-         funnel_stage = COALESCE($5, funnel_stage),
+         phone = COALESCE($2, phone),
+         whatsapp = COALESCE($3, whatsapp),
+         status = COALESCE($4, status),
+         observacao = COALESCE($5, observacao),
+         funnel_stage = COALESCE($6, funnel_stage),
          updated_at = NOW()
-       WHERE id = $6 AND niche_id = $7
+       WHERE id = $7 AND niche_id = $8
        RETURNING *`,
-      [nome_perfil, whatsapp, status, observacao, funnelStage, id, nicheId]
+      [nome_perfil, phone, whatsapp, status, observacao, funnelStage, id, nicheId]
     );
 
     if (result.rows.length === 0) {
@@ -253,9 +259,10 @@ async function stats(req, res) {
       db.query(
         `SELECT
            CASE
-             WHEN fonte_url LIKE '%instagram%' THEN 'Instagram'
-             WHEN fonte_url LIKE '%facebook%' THEN 'Facebook'
-             WHEN fonte_url LIKE '%tiktok%' THEN 'TikTok'
+             WHEN source_category = 'google_maps' THEN 'Google Maps'
+             WHEN source_category = 'instagram' OR fonte_url LIKE '%instagram%' THEN 'Instagram'
+             WHEN source_category = 'facebook' OR fonte_url LIKE '%facebook%' THEN 'Facebook'
+             WHEN source_category = 'tiktok' OR fonte_url LIKE '%tiktok%' THEN 'TikTok'
              WHEN fonte_url LIKE '%google.com/maps%' OR fonte_url LIKE '%maps.google%' THEN 'Google Maps'
              ELSE 'Outros'
            END AS fonte,
