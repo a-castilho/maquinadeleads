@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 const STORAGE_KEY = 'maquina-leads.sidebar.collapsed';
+const NEW_CAMPAIGN_KEY = 'maquina-leads.open-new-campaign';
 
 function NavIcon({ children }) {
   return <span className="sidebar-nav-icon" aria-hidden="true">{children}</span>;
 }
 
 export default function AppSidebar({ user, onLogout }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(STORAGE_KEY) === '1');
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -23,9 +26,49 @@ export default function AppSidebar({ user, onLogout }) {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  useEffect(() => {
+    if (location.pathname !== '/') return;
+
+    const target = location.hash ? document.querySelector(location.hash) : null;
+    if (target) requestAnimationFrame(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+
+    if (sessionStorage.getItem(NEW_CAMPAIGN_KEY) === '1') {
+      sessionStorage.removeItem(NEW_CAMPAIGN_KEY);
+      window.setTimeout(() => {
+        document.querySelector('.header-actions button')?.click();
+      }, 80);
+    }
+  }, [location.pathname, location.hash]);
+
   function closeMobile() {
     setMobileOpen(false);
   }
+
+  function goHomeSection(hash) {
+    closeMobile();
+    if (location.pathname === '/') {
+      const target = document.querySelector(hash);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.history.replaceState(null, '', hash);
+      return;
+    }
+    navigate(`/${hash}`);
+  }
+
+  function openNewCampaign() {
+    closeMobile();
+    if (location.pathname === '/') {
+      document.querySelector('.header-actions button')?.click();
+      window.setTimeout(() => document.querySelector('.create-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+      return;
+    }
+    sessionStorage.setItem(NEW_CAMPAIGN_KEY, '1');
+    navigate('/');
+  }
+
+  const homeActive = location.pathname === '/' && location.hash !== '#campanhas';
+  const campaignsActive = location.pathname.startsWith('/campanhas') || location.hash === '#campanhas';
+  const profileActive = location.pathname === '/perfil-empresa';
 
   return (
     <>
@@ -63,22 +106,19 @@ export default function AppSidebar({ user, onLogout }) {
           <button type="button" className="sidebar-mobile-close" onClick={closeMobile} aria-label="Fechar menu">×</button>
         </div>
 
-        <button type="button" className="sidebar-new-action" onClick={() => {
-          closeMobile();
-          document.querySelector('#campanhas')?.scrollIntoView({ behavior: 'smooth' });
-        }} title="Nova campanha">
+        <button type="button" className="sidebar-new-action" onClick={openNewCampaign} title="Nova campanha">
           <NavIcon>＋</NavIcon>
           <span className="sidebar-copy">Nova campanha</span>
         </button>
 
         <nav className="sidebar-nav" aria-label="Navegação principal">
-          <a href="#visao-geral" className="sidebar-link active" onClick={closeMobile} title="Visão geral">
+          <button type="button" className={`sidebar-link ${homeActive ? 'active' : ''}`} onClick={() => goHomeSection('#visao-geral')} title="Visão geral">
             <NavIcon>⌂</NavIcon><span className="sidebar-copy">Visão geral</span>
-          </a>
-          <a href="#campanhas" className="sidebar-link" onClick={closeMobile} title="Campanhas">
+          </button>
+          <button type="button" className={`sidebar-link ${campaignsActive ? 'active' : ''}`} onClick={() => goHomeSection('#campanhas')} title="Campanhas">
             <NavIcon>◎</NavIcon><span className="sidebar-copy">Campanhas</span>
-          </a>
-          <Link to="/perfil-empresa" className="sidebar-link" onClick={closeMobile} title="Perfil da empresa">
+          </button>
+          <Link to="/perfil-empresa" className={`sidebar-link ${profileActive ? 'active' : ''}`} onClick={closeMobile} title="Perfil da empresa">
             <NavIcon>◇</NavIcon><span className="sidebar-copy">Perfil da empresa</span>
           </Link>
         </nav>
