@@ -164,7 +164,7 @@ async function importPlaces(nicheId, places = [], query = '') {
           snippet.slice(0, 1000),
           sourceUrl,
           clean(query).slice(0, 500),
-          place.whatsapp ? 'pendente' : 'sem_telefone',
+          place.phoneDigits ? 'pendente' : 'sem_telefone',
           place.placeId,
           place.rating || null,
           place.reviews || null,
