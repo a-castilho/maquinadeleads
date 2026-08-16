@@ -28,21 +28,15 @@ export default function AppSidebar({ user, onLogout }) {
 
   useEffect(() => {
     if (location.pathname !== '/') return;
-
     const target = location.hash ? document.querySelector(location.hash) : null;
     if (target) requestAnimationFrame(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-
     if (sessionStorage.getItem(NEW_CAMPAIGN_KEY) === '1') {
       sessionStorage.removeItem(NEW_CAMPAIGN_KEY);
-      window.setTimeout(() => {
-        document.querySelector('.header-actions button')?.click();
-      }, 80);
+      window.setTimeout(() => document.querySelector('.header-actions button')?.click(), 80);
     }
   }, [location.pathname, location.hash]);
 
-  function closeMobile() {
-    setMobileOpen(false);
-  }
+  function closeMobile() { setMobileOpen(false); }
 
   function goHomeSection(hash) {
     closeMobile();
@@ -69,46 +63,25 @@ export default function AppSidebar({ user, onLogout }) {
   const homeActive = location.pathname === '/' && location.hash !== '#campanhas';
   const campaignsActive = location.pathname.startsWith('/campanhas') || location.hash === '#campanhas';
   const profileActive = location.pathname === '/perfil-empresa';
+  const aiActive = location.pathname === '/ia-palavras-chave';
 
   return (
     <>
-      <button
-        type="button"
-        className="mobile-sidebar-trigger"
-        aria-label="Abrir menu"
-        onClick={() => setMobileOpen(true)}
-      >
-        ☰
-      </button>
-
+      <button type="button" className="mobile-sidebar-trigger" aria-label="Abrir menu" onClick={() => setMobileOpen(true)}>☰</button>
       {mobileOpen && <button className="sidebar-backdrop" aria-label="Fechar menu" onClick={closeMobile} />}
 
       <aside className={`app-sidebar ${collapsed ? 'is-collapsed' : ''} ${mobileOpen ? 'is-mobile-open' : ''}`}>
         <div className="sidebar-topline">
           <Link to="/" className="brand-lockup" onClick={closeMobile} title="Máquina de Leads">
             <div className="brand-mark">M</div>
-            <div className="sidebar-copy">
-              <strong>Máquina de Leads</strong>
-              <span>Motor de prospecção</span>
-            </div>
+            <div className="sidebar-copy"><strong>Máquina de Leads</strong><span>Motor de prospecção</span></div>
           </Link>
-
-          <button
-            type="button"
-            className="sidebar-collapse-button"
-            onClick={() => setCollapsed((value) => !value)}
-            aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-            title={collapsed ? 'Expandir menu' : 'Recolher menu'}
-          >
-            {collapsed ? '›' : '‹'}
-          </button>
-
+          <button type="button" className="sidebar-collapse-button" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'} title={collapsed ? 'Expandir menu' : 'Recolher menu'}>{collapsed ? '›' : '‹'}</button>
           <button type="button" className="sidebar-mobile-close" onClick={closeMobile} aria-label="Fechar menu">×</button>
         </div>
 
         <button type="button" className="sidebar-new-action" onClick={openNewCampaign} title="Nova campanha">
-          <NavIcon>＋</NavIcon>
-          <span className="sidebar-copy">Nova campanha</span>
+          <NavIcon>＋</NavIcon><span className="sidebar-copy">Nova campanha</span>
         </button>
 
         <nav className="sidebar-nav" aria-label="Navegação principal">
@@ -121,6 +94,9 @@ export default function AppSidebar({ user, onLogout }) {
           <Link to="/perfil-empresa" className={`sidebar-link ${profileActive ? 'active' : ''}`} onClick={closeMobile} title="Perfil da empresa">
             <NavIcon>◇</NavIcon><span className="sidebar-copy">Perfil da empresa</span>
           </Link>
+          <Link to="/ia-palavras-chave" className={`sidebar-link ${aiActive ? 'active' : ''}`} onClick={closeMobile} title="IA para termos de descoberta">
+            <NavIcon>✦</NavIcon><span className="sidebar-copy">IA · Palavras-chave</span>
+          </Link>
         </nav>
 
         <div className="sidebar-section sidebar-copy">
@@ -129,12 +105,10 @@ export default function AppSidebar({ user, onLogout }) {
         </div>
 
         <div className="sidebar-spacer" />
-
         <div className="sidebar-status sidebar-copy">
           <span className="status-dot" />
           <div><strong>Sistema online</strong><small>Backend e worker ativos</small></div>
         </div>
-
         <div className="sidebar-user">
           <div className="avatar">{(user?.name || 'U').slice(0, 1).toUpperCase()}</div>
           <div className="sidebar-copy"><strong>{user?.name || 'Usuário'}</strong><span>Conta ativa</span></div>
