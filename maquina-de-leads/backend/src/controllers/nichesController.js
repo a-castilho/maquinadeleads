@@ -81,8 +81,6 @@ async function create(req, res) {
     );
     const niche = nicheResult.rows[0];
 
-    // O fluxo principal usa apenas provedores nativos. Postgres pertence à infraestrutura,
-    // não é mais credencial da campanha, e n8n não é criado automaticamente.
     const defaultProviders = ['serper', 'evolution_api'];
     for (const provider of defaultProviders) {
       const credData = initialCreds?.[provider] || {};
@@ -147,7 +145,7 @@ async function getOne(req, res) {
                 COUNT(*) FILTER (WHERE whatsapp IS NOT NULL)::int AS com_whatsapp,
                 COUNT(*) FILTER (WHERE scored_at IS NOT NULL)::int AS scored,
                 COUNT(*) FILTER (WHERE lead_score >= $2)::int AS qualified,
-                COALESCE(ROUND(AVG(lead_score)) FILTER (WHERE lead_score IS NOT NULL), 0)::int AS average_score,
+                COALESCE(ROUND(AVG(lead_score) FILTER (WHERE lead_score IS NOT NULL)), 0)::int AS average_score,
                 COUNT(*) FILTER (WHERE funnel_stage = 'discovered')::int AS discovered,
                 COUNT(*) FILTER (WHERE funnel_stage = 'qualified')::int AS funnel_qualified,
                 COUNT(*) FILTER (WHERE funnel_stage = 'ready_for_contact')::int AS ready_for_contact,
@@ -202,6 +200,8 @@ async function getOne(req, res) {
       readiness.hasKeywords &&
       readiness.hasMessage &&
       readiness.hasLeads &&
+      readiness.hasScoredLeads &&
+      readiness.hasQualifiedLeads &&
       readiness.hasEvolution
     );
 
