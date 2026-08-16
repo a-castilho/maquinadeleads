@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  FIELD_MASK,
   normalizeArea,
   buildTextQuery,
   buildLocationBias,
@@ -9,6 +10,10 @@ const {
   normalizePlace,
   applyFilters,
 } = require('../src/services/googleMapsLeadService');
+
+test('Google Places field mask requests coordinates for visual map markers', () => {
+  assert.match(FIELD_MASK, /places\.location/);
+});
 
 test('buildTextQuery combines sector, extra term and location in text mode', () => {
   assert.equal(
@@ -43,9 +48,10 @@ test('normalizeBrazilPhone preserves Brazilian landline and mobile digits', () =
   assert.equal(normalizeBrazilPhone('(31) 99999-4444'), '5531999994444');
 });
 
-test('normalizePlace maps official Places fields', () => {
+test('normalizePlace maps official Places fields including coordinates', () => {
   const place = normalizePlace({
     id: 'place-1', displayName: { text: 'Clínica Sorriso' }, formattedAddress: 'Rua A, Belo Horizonte - MG',
+    location: { latitude: -19.9245, longitude: -43.9352 },
     nationalPhoneNumber: '(31) 99999-4444', websiteUri: 'https://clinicasorriso.com.br', rating: 4.7,
     userRatingCount: 88, primaryTypeDisplayName: { text: 'Dentista' }, businessStatus: 'OPERATIONAL',
     googleMapsUri: 'https://maps.google.com/?cid=1',
@@ -54,6 +60,8 @@ test('normalizePlace maps official Places fields', () => {
   assert.equal(place.whatsapp, '5531999994444');
   assert.equal(place.rating, 4.7);
   assert.equal(place.reviews, 88);
+  assert.equal(place.latitude, -19.9245);
+  assert.equal(place.longitude, -43.9352);
 });
 
 test('normalizePlace also accepts normalized frontend payload for import', () => {
@@ -61,10 +69,13 @@ test('normalizePlace also accepts normalized frontend payload for import', () =>
     placeId: 'place-2', name: 'Empresa Teste', address: 'São Paulo',
     phone: '(11) 3333-2222', phoneDigits: '551133332222', website: 'https://example.com',
     rating: 4.4, reviews: 22, category: 'Empresa', mapsUrl: 'https://maps.google.com/test',
+    latitude: -23.5505, longitude: -46.6333,
   });
   assert.equal(place.placeId, 'place-2');
   assert.equal(place.name, 'Empresa Teste');
   assert.equal(place.phoneDigits, '551133332222');
+  assert.equal(place.latitude, -23.5505);
+  assert.equal(place.longitude, -46.6333);
 });
 
 test('applyFilters prioritizes phone, website, rating and review count', () => {
