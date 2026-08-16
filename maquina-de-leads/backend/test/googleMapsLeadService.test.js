@@ -2,16 +2,39 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  normalizeArea,
   buildTextQuery,
+  buildLocationBias,
   normalizeBrazilPhone,
   normalizePlace,
   applyFilters,
 } = require('../src/services/googleMapsLeadService');
 
-test('buildTextQuery combines sector, extra term and location', () => {
+test('buildTextQuery combines sector, extra term and location in text mode', () => {
   assert.equal(
-    buildTextQuery({ sector: 'clínica odontológica', extraTerm: 'implantes', location: 'Belo Horizonte MG' }),
+    buildTextQuery({ sector: 'clínica odontológica', extraTerm: 'implantes', location: 'Belo Horizonte MG', area: { mode: 'text' } }),
     'clínica odontológica implantes Belo Horizonte MG'
+  );
+});
+
+test('radius mode keeps explicit city out of query so Places location bias is respected', () => {
+  assert.equal(
+    buildTextQuery({ sector: 'clínica odontológica', extraTerm: 'implantes', location: 'Belo Horizonte MG', area: { mode: 'radius', latitude: -19.92, longitude: -43.94, radiusKm: 10 } }),
+    'clínica odontológica implantes'
+  );
+});
+
+test('buildLocationBias creates an official Places circle in meters', () => {
+  assert.deepEqual(
+    buildLocationBias({ mode: 'radius', latitude: -19.92, longitude: -43.94, radiusKm: 12 }),
+    { circle: { center: { latitude: -19.92, longitude: -43.94 }, radius: 12000 } }
+  );
+});
+
+test('normalizeArea rejects radius above Google Places 50 km limit', () => {
+  assert.throws(
+    () => normalizeArea({ mode: 'radius', latitude: -19.92, longitude: -43.94, radiusKm: 51 }),
+    /raio/i
   );
 });
 
@@ -22,15 +45,9 @@ test('normalizeBrazilPhone preserves Brazilian landline and mobile digits', () =
 
 test('normalizePlace maps official Places fields', () => {
   const place = normalizePlace({
-    id: 'place-1',
-    displayName: { text: 'Clínica Sorriso' },
-    formattedAddress: 'Rua A, Belo Horizonte - MG',
-    nationalPhoneNumber: '(31) 99999-4444',
-    websiteUri: 'https://clinicasorriso.com.br',
-    rating: 4.7,
-    userRatingCount: 88,
-    primaryTypeDisplayName: { text: 'Dentista' },
-    businessStatus: 'OPERATIONAL',
+    id: 'place-1', displayName: { text: 'Clínica Sorriso' }, formattedAddress: 'Rua A, Belo Horizonte - MG',
+    nationalPhoneNumber: '(31) 99999-4444', websiteUri: 'https://clinicasorriso.com.br', rating: 4.7,
+    userRatingCount: 88, primaryTypeDisplayName: { text: 'Dentista' }, businessStatus: 'OPERATIONAL',
     googleMapsUri: 'https://maps.google.com/?cid=1',
   });
   assert.equal(place.placeId, 'place-1');
