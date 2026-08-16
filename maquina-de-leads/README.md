@@ -75,3 +75,101 @@ previamente no n8n (você provavelmente já tem uma, do fluxo original) e você
 só informa o **ID dela** no dashboard, na aba Credenciais → provider
 "Postgres (credencial do n8n)". O backend referencia esse ID nos nodes
 Postgres do workflow gerado.
+
+<!-- DEV-DOCTOR-2026-08-16 -->
+
+## Desenvolvimento local com Docker
+
+O ponto de entrada oficial do ambiente local fica na raiz do repositório.
+
+Para verificar o ambiente:
+
+    ./dev doctor
+
+Para validar a configuração do Docker Compose:
+
+    ./dev config
+
+Para subir a aplicação:
+
+    ./dev up
+
+Para consultar o estado dos containers:
+
+    ./dev status
+
+Para executar smoke tests:
+
+    ./dev smoke
+
+Para acompanhar os logs:
+
+    ./dev logs
+
+Para executar o Quality Gate completo:
+
+    ./dev quality
+
+Para parar os containers preservando os volumes e os dados PostgreSQL:
+
+    ./dev down
+
+### Ambiente local
+
+Na primeira execução, o fluxo pode criar:
+
+    maquina-de-leads/.env
+
+O arquivo .env contém configurações locais e não deve ser versionado.
+
+Quando já existe um PostgreSQL utilizando o volume do projeto, o script
+valida se as credenciais presentes no .env correspondem às credenciais
+do container existente.
+
+Isso evita iniciar acidentalmente a aplicação com outro usuário, senha
+ou banco sobre o mesmo volume.
+
+### Dev Doctor
+
+O comando:
+
+    ./dev doctor
+
+verifica:
+
+- Docker;
+- Docker Compose;
+- curl;
+- openssl;
+- existência do .env;
+- POSTGRES_PASSWORD;
+- JWT_SECRET;
+- validade do docker-compose.yml.
+
+### Quality Gate
+
+O comando:
+
+    ./dev quality
+
+executa:
+
+- Dev Doctor;
+- validação do Docker Compose;
+- build do backend;
+- build do frontend;
+- inicialização da stack;
+- readiness do PostgreSQL;
+- migrations;
+- validação de sintaxe JavaScript do backend;
+- build de produção do frontend;
+- health check do backend;
+- verificação HTTP do frontend;
+- smoke test final.
+
+A aplicação principal deste repositório está localizada em:
+
+    maquina-de-leads/
+
+O wrapper ./dev deve ser utilizado como ponto de entrada para evitar
+executar um Docker Compose a partir do diretório incorreto.
