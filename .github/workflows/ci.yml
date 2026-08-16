@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: leads_user
+          POSTGRES_PASSWORD: leads_test_password
+          POSTGRES_DB: maquina_de_leads
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U leads_user -d maquina_de_leads"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: maquina-de-leads/backend
+    env:
+      DATABASE_URL: postgres://leads_user:leads_test_password@127.0.0.1:5432/maquina_de_leads
+      PGSSL: "false"
+      JWT_SECRET: ci_only_jwt_secret_1234567890abcdefghijklmnopqrstuvwxyz
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: maquina-de-leads/backend/package-lock.json
+      - run: npm ci
+      - run: npm run migrate
+      - run: node --check src/server.js
+      - run: node --check src/controllers/campaignsController.js
+      - run: node --check src/services/campaignService.js
+      - run: node --check src/routes/campaignRoutes.js
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: maquina-de-leads/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: maquina-de-leads/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
