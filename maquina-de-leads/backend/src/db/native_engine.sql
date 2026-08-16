@@ -2,6 +2,17 @@
 -- Máquina de Leads — Motor nativo de jobs
 -- =====================================================================
 
+-- Mantém `niches` como entidade interna para compatibilidade, mas adiciona
+-- os campos necessários para tratar cada registro como uma campanha no produto.
+ALTER TABLE niches ADD COLUMN IF NOT EXISTS location TEXT;
+ALTER TABLE niches ADD COLUMN IF NOT EXISTS offer TEXT;
+ALTER TABLE niches ADD COLUMN IF NOT EXISTS target_audience TEXT;
+ALTER TABLE niches ADD COLUMN IF NOT EXISTS objective TEXT;
+ALTER TABLE niches ADD COLUMN IF NOT EXISTS campaign_status VARCHAR(20) NOT NULL DEFAULT 'draft';
+
+CREATE INDEX IF NOT EXISTS idx_niches_user_campaign_status
+  ON niches (user_id, campaign_status, created_at DESC);
+
 -- Alinha o schema real com campos já usados pelos controllers/workflows legados.
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS observacao TEXT;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS email TEXT;
