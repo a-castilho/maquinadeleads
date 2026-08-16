@@ -12,17 +12,41 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
-    if (err.response?.status === 401) {
-      const code = err.response.data?.code;
-      if (code === 'TOKEN_EXPIRED') {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-      } else {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
+  async (err) => {
+    const status = err.response?.status;
+    const config = err.config || {};
+
+    if (status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+      return Promise.reject(err);
+    }
+
+    // Se uma descoberta antiga ficou presa em processing, o backend devolve 409.
+    // Tentamos recuperar somente jobs realmente stale e repetimos a ação uma vez.
+    if (
+      status === 409 &&
+      !config._staleRecoveryAttempted &&
+      typeof config.url === 'string' &&
+      /\/niches\/[^/]+\/native\/discover$/.test(config.url)
+    ) {
+      const match = config.url.match(/\/niches\/([^/]+)\/native\/discover$/);
+      const nicheId = match?.[1];
+
+      if (nicheId) {
+        config._staleRecoveryAttempted = true;
+        try {
+          const recovery = await api.post(`/niches/${nicheId}/native/recover`, {});
+          if (Number(recovery.data?.recoveredCount || 0) > 0) {
+            console.warn(`[native-ui] job stale recuperado; repetindo descoberta niche=${nicheId}`);
+            return api.request(config);
+          }
+        } catch (recoveryError) {
+          console.error('[native-ui] falha ao recuperar job stale:', recoveryError.response?.data || recoveryError.message);
+        }
       }
     }
+
     return Promise.reject(err);
   }
 );
