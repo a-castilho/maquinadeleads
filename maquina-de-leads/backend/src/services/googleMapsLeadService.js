@@ -42,22 +42,23 @@ function isBrazilianMobile(value) {
 }
 
 function normalizePlace(place = {}) {
-  const phone = clean(place.nationalPhoneNumber || place.internationalPhoneNumber) || null;
-  const normalizedPhone = normalizeBrazilPhone(phone);
-  const name = clean(place.displayName?.text || place.displayName || '');
+  const phone = clean(place.phone || place.nationalPhoneNumber || place.internationalPhoneNumber) || null;
+  const normalizedPhone = clean(place.phoneDigits) || normalizeBrazilPhone(phone);
+  const name = clean(place.name || place.displayName?.text || place.displayName || '');
+  const whatsapp = clean(place.whatsapp) || (isBrazilianMobile(phone) ? normalizedPhone : null);
   return {
-    placeId: clean(place.id),
+    placeId: clean(place.placeId || place.id),
     name,
-    address: clean(place.formattedAddress),
+    address: clean(place.address || place.formattedAddress),
     phone,
-    phoneDigits: normalizedPhone,
-    whatsapp: isBrazilianMobile(phone) ? normalizedPhone : null,
-    website: clean(place.websiteUri) || null,
+    phoneDigits: normalizedPhone || null,
+    whatsapp: whatsapp || null,
+    website: clean(place.website || place.websiteUri) || null,
     rating: Number(place.rating || 0),
-    reviews: Number(place.userRatingCount || 0),
-    category: clean(place.primaryTypeDisplayName?.text || place.primaryTypeDisplayName || ''),
+    reviews: Number(place.reviews ?? place.userRatingCount ?? 0),
+    category: clean(place.category || place.primaryTypeDisplayName?.text || place.primaryTypeDisplayName || ''),
     businessStatus: clean(place.businessStatus),
-    mapsUrl: clean(place.googleMapsUri) || null,
+    mapsUrl: clean(place.mapsUrl || place.googleMapsUri) || null,
   };
 }
 
