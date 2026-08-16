@@ -7,6 +7,16 @@ const {
   TEST_PROFILES,
 } = require('../src/controllers/companyProfileController');
 
+const FIELDS = [
+  'legal_name','trade_name','cnpj','website','linkedin_url','instagram_url','phone','email',
+  'headquarters_city','headquarters_state','service_regions','company_size','employee_range',
+  'annual_revenue_range','founding_year','business_model','market_segment','subsegments','cnaes',
+  'description','products_services','value_proposition','differentiators','main_competitors',
+  'ideal_customer_profile','target_industries','target_company_sizes','target_roles','buyer_personas',
+  'customer_pains','purchase_triggers','objections','disqualifiers','average_ticket','sales_cycle',
+  'sales_channels','keywords_seed','negative_keywords','generated_keywords','search_notes','profile_completeness'
+];
+
 test('serializeField encodes JSONB arrays as valid JSON text', () => {
   const serialized = serializeField('service_regions', ['São Paulo', 'Minas Gerais']);
   assert.equal(serialized, '["São Paulo","Minas Gerais"]');
@@ -28,7 +38,8 @@ test('all synthetic company profiles can be normalized and serialized for persis
 
   for (const seed of TEST_PROFILES) {
     const { profile, values } = buildProfileValues(seed);
-    assert.equal(values.length, 42);
+    assert.equal(values.length, FIELDS.length);
+    assert.equal(FIELDS.length, 41);
     assert.ok(profile.trade_name);
     assert.ok(profile.profile_completeness > 0);
     assert.ok(profile.generated_keywords.length > 0);
@@ -37,15 +48,8 @@ test('all synthetic company profiles can be normalized and serialized for persis
       'service_regions', 'products_services', 'target_roles', 'customer_pains',
       'keywords_seed', 'negative_keywords', 'generated_keywords', 'ideal_customer_profile',
     ]) {
-      const index = [
-        'legal_name','trade_name','cnpj','website','linkedin_url','instagram_url','phone','email',
-        'headquarters_city','headquarters_state','service_regions','company_size','employee_range',
-        'annual_revenue_range','founding_year','business_model','market_segment','subsegments','cnaes',
-        'description','products_services','value_proposition','differentiators','main_competitors',
-        'ideal_customer_profile','target_industries','target_company_sizes','target_roles','buyer_personas',
-        'customer_pains','purchase_triggers','objections','disqualifiers','average_ticket','sales_cycle',
-        'sales_channels','keywords_seed','negative_keywords','generated_keywords','search_notes','profile_completeness'
-      ].indexOf(field);
+      const index = FIELDS.indexOf(field);
+      assert.ok(index >= 0);
       assert.doesNotThrow(() => JSON.parse(values[index]), `${seed.trade_name}: ${field} precisa ser JSON válido`);
     }
   }
