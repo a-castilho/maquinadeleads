@@ -7,6 +7,11 @@ const {
   renderMessage,
   classifyFailure,
 } = require('../src/services/messagingService');
+const {
+  buildQueries,
+  cleanProfileName,
+  toLead,
+} = require('../src/services/leadDiscoveryService');
 
 test('computeScore reaches 100 for a strongly qualified lead', () => {
   const result = computeScore({
@@ -19,8 +24,8 @@ test('computeScore reaches 100 for a strongly qualified lead', () => {
       enrichment_status: 'enriquecido',
       descricao_extra: 'Dentista e implantes em São Paulo',
       snippet: 'Clínica odontológica em São Paulo',
-      original_query: 'dentista whatsapp site:instagram.com',
-      fonte_url: 'https://instagram.com/clinicasorriso',
+      original_query: 'dentista whatsapp',
+      fonte_url: 'https://clinicasorriso.com.br',
     },
   });
 
@@ -33,17 +38,12 @@ test('computeScore keeps a low-information lead below qualification range', () =
     campaign: { location: 'Curitiba' },
     keywords: [{ kind: 'nicho', term: 'academia' }],
     lead: {
-      nome_perfil: 'Desconhecido',
-      whatsapp: null,
-      email: null,
-      enrichment_status: 'sem_dados',
-      descricao_extra: null,
-      snippet: 'conteúdo genérico',
-      original_query: 'outra busca',
+      nome_perfil: 'Desconhecido', whatsapp: null, email: null,
+      enrichment_status: 'sem_dados', descricao_extra: null,
+      snippet: 'conteúdo genérico', original_query: 'outra busca',
       fonte_url: 'https://example.com/perfil',
     },
   });
-
   assert.equal(result.score, 0);
 });
 
@@ -57,10 +57,7 @@ test('normalizeBrazilianPhone inserts ninth digit for legacy 10 digit number', (
 });
 
 test('renderMessage replaces supported name placeholders', () => {
-  assert.equal(
-    renderMessage('Olá {{nome}}, {nome} e [NOME]!', 'Maria Silva'),
-    'Olá Maria, Maria e Maria!'
-  );
+  assert.equal(renderMessage('Olá {{nome}}, {nome} e [NOME]!', 'Maria Silva'), 'Olá Maria, Maria e Maria!');
 });
 
 test('classifyFailure allows explicit 4xx to be marked failed', () => {
@@ -72,4 +69,29 @@ test('classifyFailure allows explicit 4xx to be marked failed', () => {
 test('classifyFailure treats timeout or 5xx as unknown to avoid duplicate resend', () => {
   assert.equal(classifyFailure(new Error('timeout')).outboxStatus, 'unknown');
   assert.equal(classifyFailure({ response: { status: 503 } }).outboxStatus, 'unknown');
+});
+
+test('buildQueries mixes broad, local, contact and social discovery', () => {
+  const queries = buildQueries(['odontologia'], ['contato'], 20, 'Paraguaçu MG');
+  assert.ok(queries.some((q) => q.includes('"odontologia" Paraguaçu MG')));
+  assert.ok(queries.some((q) => q.includes('empresa Paraguaçu MG')));
+  assert.ok(queries.some((q) => q.includes('telefone Paraguaçu MG')));
+  assert.ok(queries.some((q) => q.includes('site:instagram.com')));
+});
+
+test('cleanProfileName keeps useful names even when search title is long', () => {
+  const title = 'Clínica Odontológica Sorriso Perfeito - Implantes, Ortodontia e Atendimento em São Paulo';
+  assert.equal(cleanProfileName(title), 'Clínica Odontológica Sorriso Perfeito');
+});
+
+test('toLead accepts identifiable business without phone for later enrichment', () => {
+  const converted = toLead({
+    title: 'Clínica Sorriso | Odontologia',
+    link: 'https://clinicasorriso.com.br',
+    snippet: 'Atendimento odontológico em Belo Horizonte',
+    query: 'odontologia Belo Horizonte',
+  }, '00000000-0000-0000-0000-000000000001');
+  assert.ok(converted.lead);
+  assert.equal(converted.lead.nomePerfil, 'Clínica Sorriso');
+  assert.equal(converted.lead.status, 'sem_telefone');
 });
