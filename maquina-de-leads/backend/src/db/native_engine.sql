@@ -2,6 +2,16 @@
 -- Máquina de Leads — Motor nativo de jobs
 -- =====================================================================
 
+-- Alinha o schema real com campos já usados pelos controllers/workflows legados.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS observacao TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS descricao_extra TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS enrichment_status VARCHAR(20) DEFAULT 'pendente';
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS enriched_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_leads_enrichment
+  ON leads (niche_id, enrichment_status, created_at);
+
 CREATE TABLE IF NOT EXISTS native_jobs (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   niche_id        UUID REFERENCES niches(id) ON DELETE CASCADE,
