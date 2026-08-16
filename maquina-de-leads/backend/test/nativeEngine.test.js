@@ -14,6 +14,10 @@ const {
 } = require('../src/services/leadDiscoveryService');
 const { extractEmail, extractPhone } = require('../src/services/enrichmentService');
 const campaignRunner = require('../src/services/campaignRunner');
+const resilientDiscovery = require('../src/services/resilientLeadDiscoveryService');
+const enrichmentService = require('../src/services/enrichmentService');
+const leadScoringService = require('../src/services/leadScoringService');
+const jobService = require('../src/services/jobService');
 
 test('computeScore reaches 100 for a strongly qualified lead', () => {
   const result = computeScore({
@@ -110,4 +114,53 @@ test('native runner wires the full operational pipeline', () => {
   assert.equal(campaignRunner.has('campaign.score_leads'), true);
   assert.equal(campaignRunner.has('campaign.process_batch'), true);
   assert.equal(campaignRunner.has('campaign.send_messages'), true);
+  assert.equal(typeof jobService.enqueueUnique, 'function');
+});
+
+test('automatic preparation chains discovery to enrichment and scoring', async () => {
+  const originalDiscover = resilientDiscovery.discover;
+  const originalEnrich = enrichmentService.enrichBatch;
+  const originalScore = leadScoringService.scoreBatch;
+  const originalEnqueueUnique = jobService.enqueueUnique;
+  const enqueued = [];
+
+  resilientDiscovery.discover = async () => ({ rawResults: 4, candidates: 3, inserted: 3 });
+  enrichmentService.enrichBatch = async () => ({ processed: 3, enriched: 2 });
+  leadScoringService.scoreBatch = async () => ({ processed: 3, qualified: 2 });
+  jobService.enqueueUnique = async (input) => {
+    enqueued.push(input);
+    return { id: `job-${enqueued.length}`, ...input };
+  };
+
+  try {
+    const discovery = await campaignRunner.run({
+      job_type: 'campaign.discover_leads',
+      niche_id: 'niche-1',
+      payload: { autoPipeline: true, enrichBatchSize: 25, scoreBatchSize: 500 },
+    });
+    assert.equal(discovery.pipeline, true);
+    assert.equal(enqueued[0].jobType, 'campaign.enrich_leads');
+    assert.equal(enqueued[0].payload.autoPipeline, true);
+
+    const enrichment = await campaignRunner.run({
+      job_type: 'campaign.enrich_leads',
+      niche_id: 'niche-1',
+      payload: { autoPipeline: true, scoreBatchSize: 500 },
+    });
+    assert.equal(enrichment.pipeline, true);
+    assert.equal(enqueued[1].jobType, 'campaign.score_leads');
+    assert.equal(enqueued[1].payload.force, true);
+
+    const scoring = await campaignRunner.run({
+      job_type: 'campaign.score_leads',
+      niche_id: 'niche-1',
+      payload: { autoPipeline: true, force: true },
+    });
+    assert.equal(scoring.preparationCompleted, true);
+  } finally {
+    resilientDiscovery.discover = originalDiscover;
+    enrichmentService.enrichBatch = originalEnrich;
+    leadScoringService.scoreBatch = originalScore;
+    jobService.enqueueUnique = originalEnqueueUnique;
+  }
 });
