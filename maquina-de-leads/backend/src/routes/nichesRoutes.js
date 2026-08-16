@@ -61,8 +61,11 @@ router.delete('/:nicheId/templates/:id', controllers.templates.remove);
 router.get('/:nicheId/credentials', controllers.credentials.list);
 router.put('/:nicheId/credentials', controllers.credentials.upsert);
 
+// Descobrir leads agora inicia a preparação completa: descoberta -> enriquecimento -> scoring.
 router.post('/:nicheId/native/prepare', controllers.nativePreparation.start);
-router.post('/:nicheId/native/discover', controllers.nativeJobs.startDiscovery);
+router.post('/:nicheId/native/discover', controllers.nativePreparation.start);
+// Endpoint técnico para executar somente a descoberta quando necessário.
+router.post('/:nicheId/native/discover-only', controllers.nativeJobs.startDiscovery);
 router.post('/:nicheId/native/enrich', controllers.nativeJobs.startEnrichment);
 router.post('/:nicheId/native/score', controllers.nativeJobs.startScoring);
 router.post('/:nicheId/native/send', controllers.nativeJobs.startSending);
