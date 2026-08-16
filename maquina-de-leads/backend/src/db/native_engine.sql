@@ -160,3 +160,34 @@ DROP TRIGGER IF EXISTS trg_native_message_outbox_updated_at ON native_message_ou
 CREATE TRIGGER trg_native_message_outbox_updated_at
 BEFORE UPDATE ON native_message_outbox
 FOR EACH ROW EXECUTE FUNCTION set_native_job_updated_at();
+
+-- Campanhas existentes que ainda não possuem termo principal recebem um termo
+-- inicial automaticamente. Isso evita que o botão "Descobrir leads" fique
+-- bloqueado logo após a criação da campanha.
+INSERT INTO keywords (niche_id, term, kind, active)
+SELECT n.id,
+       LEFT(COALESCE(NULLIF(TRIM(n.description), ''), NULLIF(TRIM(n.name), '')), 150),
+       'nicho',
+       TRUE
+  FROM niches n
+ WHERE COALESCE(NULLIF(TRIM(n.description), ''), NULLIF(TRIM(n.name), '')) IS NOT NULL
+   AND NOT EXISTS (
+     SELECT 1
+       FROM keywords k
+      WHERE k.niche_id = n.id
+        AND k.kind = 'nicho'
+        AND k.active = TRUE
+   );
+
+-- A localização da campanha entra como termo de contexto quando disponível.
+INSERT INTO keywords (niche_id, term, kind, active)
+SELECT n.id, LEFT(TRIM(n.location), 150), 'contexto', TRUE
+  FROM niches n
+ WHERE NULLIF(TRIM(n.location), '') IS NOT NULL
+   AND NOT EXISTS (
+     SELECT 1
+       FROM keywords k
+      WHERE k.niche_id = n.id
+        AND k.kind = 'contexto'
+        AND LOWER(k.term) = LOWER(TRIM(n.location))
+   );
