@@ -1,4 +1,4 @@
-const leadDiscoveryService = require('./leadDiscoveryService');
+const leadDiscoveryService = require('./resilientLeadDiscoveryService');
 const messagingService = require('./messagingService');
 const enrichmentService = require('./enrichmentService');
 const leadScoringService = require('./leadScoringService');
