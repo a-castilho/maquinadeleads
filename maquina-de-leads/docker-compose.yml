@@ -1,53 +1,127 @@
-version: '3.8'
+x-backend-environment: &backend-environment
+  NODE_ENV: development
+  PORT: 4000
+  DATABASE_URL: postgresql://${POSTGRES_USER:-leads_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-maquina_de_leads}
+  PGSSL: "false"
+  JWT_SECRET: ${JWT_SECRET}
+  JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+  FRONTEND_URL: http://localhost:${FRONTEND_PORT:-5174}
+  SEARXNG_URL: http://searxng:8080/search
+  ROBO_PYTHON_URL: ${ROBO_PYTHON_URL:-}
+  DISCOVERY_HTTP_TIMEOUT_MS: ${DISCOVERY_HTTP_TIMEOUT_MS:-10000}
+  JOB_POLL_INTERVAL_MS: ${JOB_POLL_INTERVAL_MS:-2000}
+  JOB_STALE_MINUTES: ${JOB_STALE_MINUTES:-15}
 
 services:
-  n8n:
-    image: n8nio/n8n
-    container_name: n8n
-    restart: unless-stopped
-    ports:
-      - "5678:5678"
-    environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=senha
-      - N8N_API_KEY=${N8N_API_KEY:-}
-      - GENERIC_TIMEZONE=America/Sao_Paulo
-    networks:
-      - maquina-de-leads
-    volumes:
-      - n8n_data:/home/node/.n8n
-
-  searxng:
-    image: searxng/searxng
-    container_name: searxng
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    networks:
-      - maquina-de-leads
-    volumes:
-      - ./searxng:/etc/searxng
-
   postgres:
-    image: postgres:15
-    container_name: postgres
+    image: postgres:15-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: leads_user
-      POSTGRES_PASSWORD: MinhaSenh4Segura123
-      POSTGRES_DB: maquina_de_leads
+      POSTGRES_USER: ${POSTGRES_USER:-leads_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-maquina_de_leads}
     ports:
-      - "5432:5432"
-    networks:
-      - maquina-de-leads
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-leads_user} -d ${POSTGRES_DB:-maquina_de_leads}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - maquina-de-leads
+
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    volumes:
+      - ./searxng:/etc/searxng
+    expose:
+      - "8080"
+    networks:
+      - maquina-de-leads
+
+  migrate:
+    build:
+      context: ./backend
+    command: npm run migrate
+    restart: "no"
+    environment: *backend-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - maquina-de-leads
+
+  backend:
+    build:
+      context: ./backend
+    command: npm run dev
+    restart: unless-stopped
+    environment: *backend-environment
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-4000}:4000"
+    volumes:
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      searxng:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - maquina-de-leads
+
+  worker:
+    build:
+      context: ./backend
+    command: npm run worker
+    restart: unless-stopped
+    environment: *backend-environment
+    volumes:
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      searxng:
+        condition: service_started
+    networks:
+      - maquina-de-leads
+
+  frontend:
+    build:
+      context: ./frontend
+    command: npm run dev -- --host 0.0.0.0
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:${BACKEND_PORT:-4000}/api
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5174}:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - maquina-de-leads
 
 networks:
   maquina-de-leads:
     driver: bridge
 
 volumes:
-  n8n_data:
   postgres_data:
+  backend_node_modules:
+  frontend_node_modules:
