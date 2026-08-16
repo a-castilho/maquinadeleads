@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const { assertNicheOwnership } = require('../utils/ownership');
 const aiKeywordService = require('../services/aiKeywordService');
+const aiKeywordChatService = require('../services/aiKeywordChatService');
 
 async function generate(req, res) {
   const { nicheId } = req.params;
@@ -42,4 +43,49 @@ async function listRuns(req, res) {
   }
 }
 
-module.exports = { generate, listRuns };
+async function chat(req, res) {
+  const { nicheId } = req.params;
+  try {
+    if (!(await assertNicheOwnership(nicheId, req.user.sub))) {
+      return res.status(404).json({ error: 'Campanha não encontrada.' });
+    }
+    const result = await aiKeywordChatService.chat({
+      nicheId,
+      userId: req.user.sub,
+      message: req.body?.message,
+    });
+    return res.status(201).json({ message: result });
+  } catch (err) {
+    console.error(`[ai-keywords.chat] niche=${nicheId}:`, err.message);
+    return res.status(400).json({ error: err.message || 'Erro na conversa com especialista.' });
+  }
+}
+
+async function chatHistory(req, res) {
+  const { nicheId } = req.params;
+  try {
+    if (!(await assertNicheOwnership(nicheId, req.user.sub))) {
+      return res.status(404).json({ error: 'Campanha não encontrada.' });
+    }
+    return res.json({ messages: await aiKeywordChatService.history(nicheId, req.user.sub) });
+  } catch (err) {
+    console.error(`[ai-keywords.chatHistory] niche=${nicheId}:`, err.message);
+    return res.status(500).json({ error: 'Erro ao carregar conversa com especialista.' });
+  }
+}
+
+async function clearChat(req, res) {
+  const { nicheId } = req.params;
+  try {
+    if (!(await assertNicheOwnership(nicheId, req.user.sub))) {
+      return res.status(404).json({ error: 'Campanha não encontrada.' });
+    }
+    const deleted = await aiKeywordChatService.clear(nicheId, req.user.sub);
+    return res.json({ deleted });
+  } catch (err) {
+    console.error(`[ai-keywords.clearChat] niche=${nicheId}:`, err.message);
+    return res.status(500).json({ error: 'Erro ao limpar conversa.' });
+  }
+}
+
+module.exports = { generate, listRuns, chat, chatHistory, clearChat };
