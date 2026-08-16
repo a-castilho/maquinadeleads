@@ -3,7 +3,7 @@ const path = require('path');
 const { pool } = require('../config/db');
 
 async function migrate() {
-  const migrationFiles = ['schema.sql', 'native_engine.sql'];
+  const migrationFiles = ['schema.sql', 'native_engine.sql', 'company_profile.sql'];
 
   try {
     for (const file of migrationFiles) {
