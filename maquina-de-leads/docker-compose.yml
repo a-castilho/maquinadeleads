@@ -1,9 +1,9 @@
 x-backend-environment: &backend-environment
   NODE_ENV: development
   PORT: 4000
-  DATABASE_URL: postgresql://${POSTGRES_USER:-leads_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-maquina_de_leads}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-leads_user}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}@postgres:5432/${POSTGRES_DB:-maquina_de_leads}
   PGSSL: "false"
-  JWT_SECRET: ${JWT_SECRET}
+  JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
   JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
   FRONTEND_URL: http://localhost:${FRONTEND_PORT:-5174}
   SEARXNG_URL: http://searxng:8080/search
@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-leads_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
       POSTGRES_DB: ${POSTGRES_DB:-maquina_de_leads}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
