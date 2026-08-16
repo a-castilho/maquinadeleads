@@ -21,16 +21,20 @@ const listFields = new Set([
 
 function toText(value) { return Array.isArray(value) ? value.join('\n') : ''; }
 function toList(value) { return String(value || '').split(/\n|,/).map(v => v.trim()).filter(Boolean); }
+function hydrate(data) {
+  return { ...empty, ...(data || {}), ideal_customer_profile: { ...empty.ideal_customer_profile, ...(data?.ideal_customer_profile || {}) } };
+}
 
 export default function CompanyProfile() {
   const [form, setForm] = useState(empty);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingTest, setGeneratingTest] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     api.get('/company-profile').then(({ data }) => {
-      if (data) setForm({ ...empty, ...data, ideal_customer_profile: { ...empty.ideal_customer_profile, ...(data.ideal_customer_profile || {}) } });
+      if (data) setForm(hydrate(data));
     }).finally(() => setLoading(false));
   }, []);
 
@@ -48,11 +52,28 @@ export default function CompanyProfile() {
     setSaving(true); setMessage('');
     try {
       const { data } = await api.put('/company-profile', form);
-      setForm({ ...empty, ...data, ideal_customer_profile: { ...empty.ideal_customer_profile, ...(data.ideal_customer_profile || {}) } });
+      setForm(hydrate(data));
       setMessage('Perfil salvo e palavras-chave recalculadas.');
     } catch (err) {
       setMessage(err.response?.data?.error || 'Erro ao salvar perfil.');
     } finally { setSaving(false); }
+  }
+
+  async function generateTestCompany() {
+    const hasData = Boolean(form.trade_name || form.legal_name || form.description);
+    if (hasData && !window.confirm('Gerar uma empresa de teste substituirá o perfil atual. Continuar?')) return;
+
+    setGeneratingTest(true);
+    setMessage('');
+    try {
+      const { data } = await api.post('/company-profile/generate-test');
+      setForm(hydrate(data));
+      setMessage(`Empresa fictícia gerada: ${data.trade_name || data.legal_name}. Perfil salvo e palavras-chave criadas automaticamente.`);
+    } catch (err) {
+      setMessage(err.response?.data?.error || 'Erro ao gerar empresa de teste.');
+    } finally {
+      setGeneratingTest(false);
+    }
   }
 
   if (loading) return <div className="page"><p>Carregando perfil...</p></div>;
@@ -71,9 +92,17 @@ export default function CompanyProfile() {
     </header>
 
     <section className="card">
-      <h2>Completude: {completeness}%</h2>
+      <div style={{display:'flex',justifyContent:'space-between',gap:16,alignItems:'center',flexWrap:'wrap'}}>
+        <div>
+          <h2 style={{marginBottom:4}}>Completude: {completeness}%</h2>
+          <p className="hint">Quanto mais completo o perfil, melhor a geração automática de termos de busca.</p>
+        </div>
+        <button type="button" onClick={generateTestCompany} disabled={generatingTest}>
+          {generatingTest ? 'Gerando empresa...' : '⚙ Gerar empresa para teste'}
+        </button>
+      </div>
       <div style={{height:10,background:'#e5e7eb',borderRadius:8,overflow:'hidden'}}><div style={{height:'100%',width:`${completeness}%`,background:'#111827'}} /></div>
-      <p className="hint">Quanto mais completo o perfil, melhor a geração automática de termos de busca.</p>
+      <p className="hint" style={{marginTop:10}}>O gerador usa dados sintéticos e nunca consulta ou cadastra uma empresa real.</p>
     </section>
 
     <form onSubmit={save} className="stacked-form">
