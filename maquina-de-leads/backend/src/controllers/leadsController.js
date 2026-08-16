@@ -235,7 +235,7 @@ async function stats(req, res) {
       ),
       db.query(
         `SELECT COUNT(*) FILTER (WHERE scored_at IS NOT NULL)::int AS scored,
-                COALESCE(ROUND(AVG(lead_score)) FILTER (WHERE lead_score IS NOT NULL), 0)::int AS average_score,
+                COALESCE(ROUND(AVG(lead_score) FILTER (WHERE lead_score IS NOT NULL)), 0)::int AS average_score,
                 MAX(lead_score)::int AS max_score,
                 MIN(lead_score)::int AS min_score
            FROM leads
