@@ -1,13 +1,11 @@
 const leadDiscoveryService = require('./leadDiscoveryService');
 
-async function discover(nicheId, options = {}) {
-  const result = await leadDiscoveryService.discover(nicheId, options);
-
-  if (Number(result.rawResults || 0) === 0) {
+function validateDiscoveryResult(result, nicheId = 'unknown') {
+  if (Number(result?.rawResults || 0) === 0) {
     const message = [
       'Nenhum provedor retornou resultados para a descoberta.',
-      `queries=${result.queries || 0}`,
-      `providerErrors=${result.providerErrors || 0}`,
+      `queries=${result?.queries || 0}`,
+      `providerErrors=${result?.providerErrors || 0}`,
       'Verifique os logs [discovery] e a conectividade do SearXNG/Serper.',
     ].join(' ');
 
@@ -18,16 +16,22 @@ async function discover(nicheId, options = {}) {
     throw error;
   }
 
-  if (Number(result.candidates || 0) === 0) {
+  if (Number(result?.candidates || 0) === 0) {
     console.warn(
       `[discovery] resultados encontrados mas nenhum candidato aceito niche=${nicheId} ` +
-      `raw=${result.rawResults} rejected=${JSON.stringify(result.rejected || {})}`
+      `raw=${result?.rawResults || 0} rejected=${JSON.stringify(result?.rejected || {})}`
     );
   }
 
   return result;
 }
 
+async function discover(nicheId, options = {}) {
+  const result = await leadDiscoveryService.discover(nicheId, options);
+  return validateDiscoveryResult(result, nicheId);
+}
+
 module.exports = {
   discover,
+  validateDiscoveryResult,
 };
