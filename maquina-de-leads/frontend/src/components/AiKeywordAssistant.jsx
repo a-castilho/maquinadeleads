@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../api/client';
+import './AiKeywordAssistant.css';
 
 export default function AiKeywordAssistant({ campaignId, onGenerated }) {
   const [apiKey, setApiKey] = useState('');
