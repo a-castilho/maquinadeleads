@@ -13,113 +13,53 @@ require_command() {
     fi
 }
 
-is_existing_project_postgres() {
-    local container="postgres"
-
-    if ! docker inspect "$container" >/dev/null 2>&1; then
-        return 1
-    fi
-
-    while IFS= read -r mount_name; do
-        if [ "$mount_name" = "maquina-de-leads_postgres_data" ]; then
-            return 0
-        fi
-    done < <(
-        docker inspect "$container" \
-            --format '{{range .Mounts}}{{println .Name}}{{end}}'
-    )
-
-    return 1
+postgres_container_id() {
+    docker compose ps -a -q postgres 2>/dev/null | head -n 1
 }
 
-load_existing_postgres_credentials() {
-    local container="postgres"
+postgres_container_exists() {
+    [ -n "$(postgres_container_id)" ]
+}
 
-    if ! is_existing_project_postgres; then
+load_existing_postgres_metadata() {
+    local container
+    container="$(postgres_container_id)"
+
+    if [ -z "$container" ]; then
         return 1
     fi
 
-    POSTGRES_USER=""
-    POSTGRES_PASSWORD=""
-    POSTGRES_DB=""
+    local detected_user=""
+    local detected_db=""
 
     while IFS='=' read -r key value; do
         case "$key" in
-            POSTGRES_USER) POSTGRES_USER="$value" ;;
-            POSTGRES_PASSWORD) POSTGRES_PASSWORD="$value" ;;
-            POSTGRES_DB) POSTGRES_DB="$value" ;;
+            POSTGRES_USER) detected_user="$value" ;;
+            POSTGRES_DB) detected_db="$value" ;;
         esac
     done < <(
         docker inspect "$container" \
             --format '{{range .Config.Env}}{{println .}}{{end}}'
     )
 
-    if [ -z "$POSTGRES_PASSWORD" ]; then
-        return 1
-    fi
-
-    POSTGRES_USER="${POSTGRES_USER:-leads_user}"
-    POSTGRES_DB="${POSTGRES_DB:-maquina_de_leads}"
-
+    EXISTING_POSTGRES_USER="${detected_user:-leads_user}"
+    EXISTING_POSTGRES_DB="${detected_db:-maquina_de_leads}"
     return 0
-}
-
-validate_existing_env() {
-    local configured_user configured_password configured_db
-    local running_user running_password running_db
-
-    if [ ! -f .env ] || ! is_existing_project_postgres; then
-        return 0
-    fi
-
-    set -a
-    source .env
-    set +a
-
-    configured_user="${POSTGRES_USER:-}"
-    configured_password="${POSTGRES_PASSWORD:-}"
-    configured_db="${POSTGRES_DB:-}"
-
-    if ! load_existing_postgres_credentials; then
-        echo "ERRO: não foi possível ler credenciais do PostgreSQL existente." >&2
-        exit 1
-    fi
-
-    running_user="$POSTGRES_USER"
-    running_password="$POSTGRES_PASSWORD"
-    running_db="$POSTGRES_DB"
-
-    if [ "$configured_user" != "$running_user" ] || \
-       [ "$configured_password" != "$running_password" ] || \
-       [ "$configured_db" != "$running_db" ]; then
-
-        cat >&2 <<'ERROR'
-ERRO_ENV_POSTGRES_DIVERGENTE
-
-O .env atual não corresponde ao PostgreSQL que utiliza o volume
-maquina-de-leads_postgres_data.
-
-Nenhum dado foi alterado.
-Corrija o .env antes de continuar.
-ERROR
-
-        exit 1
-    fi
-
-    echo "ENV_POSTGRES_VALIDADO"
 }
 
 ensure_env() {
     if [ ! -f .env ]; then
-
         require_command openssl
 
-        if load_existing_postgres_credentials; then
+        POSTGRES_USER="leads_user"
+        POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+        POSTGRES_DB="maquina_de_leads"
+
+        if load_existing_postgres_metadata; then
+            POSTGRES_USER="$EXISTING_POSTGRES_USER"
+            POSTGRES_DB="$EXISTING_POSTGRES_DB"
             echo "POSTGRES_EXISTENTE_DETECTADO"
         else
-            POSTGRES_USER="leads_user"
-            POSTGRES_PASSWORD="$(openssl rand -hex 24)"
-            POSTGRES_DB="maquina_de_leads"
             echo "POSTGRES_NOVO_CONFIGURADO"
         fi
 
@@ -150,34 +90,12 @@ ENVEOF
         chmod 600 .env
         echo "ENV_LOCAL_CRIADO"
     fi
-
-    validate_existing_env
 }
 
 load_env() {
     set -a
     source .env
     set +a
-}
-
-wait_http() {
-    local url="$1"
-    local label="$2"
-    local attempts="${3:-60}"
-
-    require_command curl
-
-    for ((i=1; i<=attempts; i++)); do
-        if curl -fsS "$url" >/dev/null 2>&1; then
-            echo "OK: $label"
-            return 0
-        fi
-
-        sleep 2
-    done
-
-    echo "ERRO: timeout aguardando $label em $url" >&2
-    return 1
 }
 
 wait_postgres() {
@@ -201,6 +119,62 @@ wait_postgres() {
     return 1
 }
 
+reconcile_postgres_password() {
+    if ! postgres_container_exists; then
+        return 0
+    fi
+
+    wait_postgres
+
+    echo "SINCRONIZANDO_CREDENCIAL_POSTGRES"
+
+    # O PostgreSQL oficial permite conexão local pelo socket Unix dentro do
+    # próprio container. Isso possibilita alinhar a senha do role existente
+    # com o .env atual sem conhecer a senha antiga e sem recriar o volume.
+    if docker compose exec -T postgres \
+        psql \
+        -v ON_ERROR_STOP=1 \
+        -U "${POSTGRES_USER}" \
+        -d "${POSTGRES_DB}" \
+        -v new_password="${POSTGRES_PASSWORD}" \
+        -c "ALTER ROLE \"${POSTGRES_USER}\" WITH PASSWORD :'new_password';" \
+        >/dev/null; then
+        echo "POSTGRES_PASSWORD_SINCRONIZADO"
+        return 0
+    fi
+
+    cat >&2 <<'ERROR'
+ERRO_AO_SINCRONIZAR_POSTGRES
+
+O PostgreSQL está ativo, mas não foi possível atualizar a senha pelo socket
+local. Nenhum volume foi removido.
+
+Execute:
+  docker compose logs --tail=100 postgres
+ERROR
+    return 1
+}
+
+wait_http() {
+    local url="$1"
+    local label="$2"
+    local attempts="${3:-60}"
+
+    require_command curl
+
+    for ((i=1; i<=attempts; i++)); do
+        if curl -fsS "$url" >/dev/null 2>&1; then
+            echo "OK: $label"
+            return 0
+        fi
+
+        sleep 2
+    done
+
+    echo "ERRO: timeout aguardando $label em $url" >&2
+    return 1
+}
+
 doctor() {
     ensure_env
     load_env
@@ -218,12 +192,9 @@ doctor() {
     echo "OK: openssl"
 
     docker compose config >/dev/null
-
     echo "OK: compose config"
 
-    if [ -f .env ]; then
-        echo "OK: .env"
-    fi
+    [ -f .env ] && echo "OK: .env"
 
     if [ -n "${POSTGRES_PASSWORD:-}" ]; then
         echo "OK: POSTGRES_PASSWORD"
@@ -237,6 +208,10 @@ doctor() {
     else
         echo "ERRO: JWT_SECRET ausente"
         exit 1
+    fi
+
+    if postgres_container_exists; then
+        reconcile_postgres_password
     fi
 
     echo "DEV_DOCTOR_OK"
@@ -273,6 +248,9 @@ smoke() {
 case "$ACTION" in
     init)
         ensure_env
+        load_env
+        docker compose up -d postgres
+        reconcile_postgres_password
         ;;
 
     doctor)
@@ -293,8 +271,13 @@ case "$ACTION" in
         docker compose config >/dev/null
         echo "COMPOSE_CONFIG_OK"
 
-        docker compose up -d --build
+        # Sobe primeiro o banco para permitir a reconciliação de credenciais
+        # em volumes preexistentes. Depois o migrate/backend/worker/frontend
+        # recebem exatamente a mesma senha do .env.
+        docker compose up -d postgres
+        reconcile_postgres_password
 
+        docker compose up -d --build
         smoke
         ;;
 
