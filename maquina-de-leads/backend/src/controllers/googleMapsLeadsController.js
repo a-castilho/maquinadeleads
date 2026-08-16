@@ -14,6 +14,12 @@ async function search(req, res) {
       extraTerm: req.body?.extraTerm,
       pageSize: req.body?.pageSize,
       pageToken: req.body?.pageToken,
+      area: {
+        mode: req.body?.area?.mode,
+        latitude: req.body?.area?.latitude,
+        longitude: req.body?.area?.longitude,
+        radiusKm: req.body?.area?.radiusKm,
+      },
       filters: {
         requirePhone: Boolean(req.body?.filters?.requirePhone),
         requireWebsite: Boolean(req.body?.filters?.requireWebsite),
@@ -25,7 +31,7 @@ async function search(req, res) {
     });
     return res.json(result);
   } catch (err) {
-    const status = /Configure a chave|obrigat[oó]ri/i.test(err.message) ? 400 : 502;
+    const status = /Configure a chave|obrigat[oó]ri|inválid|raio/i.test(err.message) ? 400 : 502;
     console.error(`[google-maps.controller] search error niche=${nicheId} status=${status} error=${err.message}`);
     return res.status(status).json({ error: err.response?.data?.error?.message || err.message || 'Erro ao buscar no Google Maps.' });
   }
