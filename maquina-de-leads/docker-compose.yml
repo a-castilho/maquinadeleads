@@ -11,8 +11,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-maquina_de_leads}
     ports:
       - "5432:5432"
-    networks:
-      - maquina-de-leads
+    networks: [maquina-de-leads]
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -34,8 +33,23 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - maquina-de-leads
+    networks: [maquina-de-leads]
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: maquina-de-leads-searxng
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks: [maquina-de-leads]
+    volumes:
+      - ./searxng:/etc/searxng
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
   backend:
     build:
@@ -50,6 +64,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-leads_user}:${POSTGRES_PASSWORD:-maquina_de_leads_dev_password}@postgres:5432/${POSTGRES_DB:-maquina_de_leads}
       PGSSL: "false"
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      SEARXNG_URL: http://searxng:8080
     ports:
       - "4000:4000"
     depends_on:
@@ -57,8 +72,9 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    networks:
-      - maquina-de-leads
+      searxng:
+        condition: service_healthy
+    networks: [maquina-de-leads]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
@@ -79,19 +95,7 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    networks:
-      - maquina-de-leads
-
-  searxng:
-    image: searxng/searxng:latest
-    container_name: maquina-de-leads-searxng
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    networks:
-      - maquina-de-leads
-    volumes:
-      - ./searxng:/etc/searxng
+    networks: [maquina-de-leads]
 
 networks:
   maquina-de-leads:
