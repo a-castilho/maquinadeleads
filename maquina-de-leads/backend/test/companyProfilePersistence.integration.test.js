@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { after } = require('node:test');
 
 const db = require('../src/config/db');
 const {
@@ -16,6 +17,10 @@ const FIELDS = [
   'customer_pains','purchase_triggers','objections','disqualifiers','average_ticket','sales_cycle',
   'sales_channels','keywords_seed','negative_keywords','generated_keywords','search_notes','profile_completeness'
 ];
+
+after(async () => {
+  await db.pool.end();
+});
 
 function insertSql() {
   const columns = FIELDS.join(', ');
