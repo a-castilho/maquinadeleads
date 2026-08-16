@@ -1,3 +1,5 @@
+const leadDiscoveryService = require('./leadDiscoveryService');
+
 class CampaignRunner {
   constructor() {
     this.handlers = new Map();
@@ -30,13 +32,15 @@ class CampaignRunner {
 
 const runner = new CampaignRunner();
 
-// Handler mínimo para validar fila, lock, execução e auditoria sem depender
-// de integrações externas. Pode ser removido quando os primeiros jobs reais
-// de campanha estiverem registrados.
 runner.register('system.noop', async ({ payload }) => ({
   ok: true,
   payload,
 }));
+
+runner.register('campaign.discover_leads', async ({ nicheId, payload }) => {
+  if (!nicheId) throw new Error('Job de descoberta sem niche_id.');
+  return leadDiscoveryService.discover(nicheId, payload);
+});
 
 module.exports = runner;
 module.exports.CampaignRunner = CampaignRunner;
