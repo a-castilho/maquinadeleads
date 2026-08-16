@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../api/client';
+import GoogleMapsInteractiveMap from '../components/GoogleMapsInteractiveMap.jsx';
 import './GoogleMapsLeads.css';
 
 const defaultFilters = {
@@ -246,9 +247,11 @@ export default function GoogleMapsLeads() {
         {!configured && <p className="hint">Cadastre a chave Google Places acima para habilitar a busca oficial.</p>}
       </section>
 
+      <GoogleMapsInteractiveMap results={results} area={area} selected={selected} onToggle={toggle} />
+
       <section className="card maps-results-card">
         <div className="maps-card-heading">
-          <div><h2>4. Resultados</h2><p className="hint">{results.length ? `${results.length} leads carregados · ${selected.size} selecionados` : 'Faça uma busca para carregar empresas.'}</p></div>
+          <div><h2>5. Resultados</h2><p className="hint">{results.length ? `${results.length} leads carregados · ${selected.size} selecionados` : 'Faça uma busca para carregar empresas.'}</p></div>
           <div className="maps-actions">
             {results.length > 0 && <button type="button" className="secondary-button" onClick={toggleAll}>{selected.size === results.length ? 'Desmarcar todos' : 'Selecionar todos'}</button>}
             <button type="button" onClick={importSelected} disabled={importing || !selected.size}>{importing ? 'Importando...' : `Importar ${selected.size || ''} para campanha`}</button>
