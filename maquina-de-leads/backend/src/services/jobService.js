@@ -25,6 +25,27 @@ async function enqueue({ nicheId = null, jobType, payload = {}, runAt = null, ma
   return result.rows[0];
 }
 
+async function enqueueUnique({ nicheId = null, jobType, payload = {}, runAt = null, maxAttempts = 3 }) {
+  if (!jobType) throw new Error('jobType é obrigatório.');
+
+  const attemptsLimit = Math.max(1, Number(maxAttempts) || 3);
+  const result = await db.query(
+    `INSERT INTO native_jobs (niche_id, job_type, payload, run_at, max_attempts)
+     SELECT $1, $2, $3::jsonb, COALESCE($4::timestamptz, NOW()), $5
+      WHERE NOT EXISTS (
+        SELECT 1
+          FROM native_jobs
+         WHERE niche_id IS NOT DISTINCT FROM $1
+           AND job_type = $2
+           AND status IN ('pending', 'processing', 'retry')
+      )
+     RETURNING *`,
+    [nicheId, jobType, JSON.stringify(payload || {}), runAt, attemptsLimit]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function listForNiche(nicheId, { status = null, limit = 50 } = {}) {
   const safeLimit = Math.min(200, Math.max(1, Number(limit) || 50));
   const params = [nicheId];
@@ -257,6 +278,7 @@ async function fail(job, executionId, error) {
 
 module.exports = {
   enqueue,
+  enqueueUnique,
   listForNiche,
   getExecutions,
   recoverStaleJobs,
