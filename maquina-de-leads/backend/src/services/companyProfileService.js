@@ -62,6 +62,18 @@ function generateKeywords(profile) {
   return [...candidates].slice(0, 120);
 }
 
+function normalizeSyntheticCnpj(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return raw;
+
+  // Perfis de teste antigos usavam o prefixo TESTE-, deixando o valor maior
+  // que VARCHAR(18) em instalações anteriores. Removemos somente esse prefixo
+  // para manter o identificador sintético compatível mesmo antes da migration
+  // que converteu a coluna para TEXT.
+  if (/^TESTE-/i.test(raw)) return raw.replace(/^TESTE-/i, '').slice(0, 18);
+  return raw;
+}
+
 function normalizeProfile(input = {}) {
   const arrayFields = [
     'service_regions', 'subsegments', 'cnaes', 'products_services', 'differentiators',
@@ -72,6 +84,7 @@ function normalizeProfile(input = {}) {
 
   const normalized = { ...input };
   arrayFields.forEach((field) => { normalized[field] = cleanList(input[field]); });
+  normalized.cnpj = normalizeSyntheticCnpj(input.cnpj);
   normalized.ideal_customer_profile = input.ideal_customer_profile && typeof input.ideal_customer_profile === 'object'
     ? input.ideal_customer_profile
     : {};
@@ -80,4 +93,9 @@ function normalizeProfile(input = {}) {
   return normalized;
 }
 
-module.exports = { normalizeProfile, generateKeywords, calculateCompleteness };
+module.exports = {
+  normalizeProfile,
+  generateKeywords,
+  calculateCompleteness,
+  normalizeSyntheticCnpj,
+};
