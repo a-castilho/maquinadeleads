@@ -5,36 +5,26 @@ import Dashboard from './pages/Dashboard.jsx';
 import CampaignDetail from './pages/CampaignDetail.jsx';
 import CompanyProfile from './pages/CompanyProfile.jsx';
 import PrivateRoute from './components/PrivateRoute.jsx';
+import AppLayout from './components/AppLayout.jsx';
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+
       <Route
-        path="/"
         element={
           <PrivateRoute>
-            <Dashboard />
+            <AppLayout />
           </PrivateRoute>
         }
-      />
-      <Route
-        path="/perfil-empresa"
-        element={
-          <PrivateRoute>
-            <CompanyProfile />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/campanhas/:id"
-        element={
-          <PrivateRoute>
-            <CampaignDetail />
-          </PrivateRoute>
-        }
-      />
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="/perfil-empresa" element={<CompanyProfile />} />
+        <Route path="/campanhas/:id" element={<CampaignDetail />} />
+      </Route>
+
       <Route path="/nichos/:id" element={<Navigate to="/" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
