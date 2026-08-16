@@ -3,12 +3,15 @@ const path = require('path');
 const { pool } = require('../config/db');
 
 async function migrate() {
-  const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
+  const files = ['schema.sql', 'native_campaigns.sql'];
   try {
-    await pool.query(schema);
-    console.log('✅ Schema aplicado com sucesso.');
+    for (const file of files) {
+      const sql = fs.readFileSync(path.join(__dirname, file), 'utf8');
+      await pool.query(sql);
+      console.log(`✅ Migração aplicada: ${file}`);
+    }
   } catch (err) {
-    console.error('❌ Erro ao aplicar schema:', err.message);
+    console.error('❌ Erro ao aplicar migrações:', err.message);
     process.exitCode = 1;
   } finally {
     await pool.end();
