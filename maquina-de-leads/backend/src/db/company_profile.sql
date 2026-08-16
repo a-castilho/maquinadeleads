@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS company_profiles (
   user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
   legal_name TEXT,
   trade_name TEXT,
-  cnpj VARCHAR(18),
+  cnpj TEXT,
   website TEXT,
   linkedin_url TEXT,
   instagram_url TEXT,
@@ -46,6 +46,12 @@ CREATE TABLE IF NOT EXISTS company_profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT company_profiles_completeness_check CHECK (profile_completeness BETWEEN 0 AND 100)
 );
+
+-- Instalações anteriores criaram CNPJ como VARCHAR(18). Os perfis sintéticos
+-- usam um identificador explicitamente marcado como TESTE, portanto precisam
+-- de espaço adicional. Mantemos TEXT para não confundir o dado de teste com
+-- um CNPJ real e para tornar a migration retrocompatível.
+ALTER TABLE company_profiles ALTER COLUMN cnpj TYPE TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_company_profiles_user ON company_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_company_profiles_segment ON company_profiles(market_segment);
