@@ -128,17 +128,20 @@ reconcile_postgres_password() {
 
     echo "SINCRONIZANDO_CREDENCIAL_POSTGRES"
 
-    # O PostgreSQL oficial permite conexão local pelo socket Unix dentro do
-    # próprio container. Isso possibilita alinhar a senha do role existente
-    # com o .env atual sem conhecer a senha antiga e sem recriar o volume.
-    if docker compose exec -T postgres \
-        psql \
-        -v ON_ERROR_STOP=1 \
-        -U "${POSTGRES_USER}" \
-        -d "${POSTGRES_DB}" \
-        -v new_password="${POSTGRES_PASSWORD}" \
-        -c "ALTER ROLE \"${POSTGRES_USER}\" WITH PASSWORD :'new_password';" \
-        >/dev/null; then
+    # Usa o socket Unix local do container para não depender da senha antiga.
+    # A instrução é enviada pela entrada padrão porque o psql não expande
+    # variáveis :'nome' de forma confiável quando elas aparecem em -c.
+    # format(%I/%L) protege, respectivamente, identificador e literal SQL.
+    if printf '%s\n' \
+        "SELECT format('ALTER ROLE %I WITH PASSWORD %L', :'role_name', :'new_password') \\gexec" \
+        | docker compose exec -T postgres \
+            psql \
+            -v ON_ERROR_STOP=1 \
+            -U "${POSTGRES_USER}" \
+            -d "${POSTGRES_DB}" \
+            -v role_name="${POSTGRES_USER}" \
+            -v new_password="${POSTGRES_PASSWORD}" \
+            >/dev/null; then
         echo "POSTGRES_PASSWORD_SINCRONIZADO"
         return 0
     fi
