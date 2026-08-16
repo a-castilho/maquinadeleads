@@ -290,6 +290,8 @@ async function activate(req, res) {
   if (!state.hasKeywords) missing.push('palavras-chave');
   if (!state.hasMessage) missing.push('mensagem ativa');
   if (!state.hasLeads) missing.push('leads para revisão');
+  if (!state.hasScoredLeads) missing.push('scoring dos leads');
+  if (!state.hasQualifiedLeads) missing.push('lead qualificado acima do score mínimo');
   if (!state.hasEvolution) missing.push('Evolution API');
 
   if (missing.length) {
