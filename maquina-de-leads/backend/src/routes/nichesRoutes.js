@@ -11,6 +11,7 @@ const controllers = {
   nativePreparation: require('../controllers/nativePreparationController'),
   lifecycle: require('../controllers/campaignLifecycleController'),
   aiKeywords: require('../controllers/aiKeywordsController'),
+  googleMaps: require('../controllers/googleMapsLeadsController'),
 };
 
 const requiredMethods = {
@@ -24,6 +25,7 @@ const requiredMethods = {
   nativePreparation: ['start'],
   lifecycle: ['complete'],
   aiKeywords: ['generate', 'listRuns', 'chat', 'chatHistory', 'clearChat'],
+  googleMaps: ['search', 'importLeads'],
 };
 
 for (const [ctrlName, methods] of Object.entries(requiredMethods)) {
@@ -60,6 +62,9 @@ router.delete('/:nicheId/templates/:id', controllers.templates.remove);
 
 router.get('/:nicheId/credentials', controllers.credentials.list);
 router.put('/:nicheId/credentials', controllers.credentials.upsert);
+
+router.post('/:nicheId/google-maps/search', controllers.googleMaps.search);
+router.post('/:nicheId/google-maps/import', controllers.googleMaps.importLeads);
 
 // Descobrir leads agora inicia a preparação completa: descoberta -> enriquecimento -> scoring.
 router.post('/:nicheId/native/prepare', controllers.nativePreparation.start);
