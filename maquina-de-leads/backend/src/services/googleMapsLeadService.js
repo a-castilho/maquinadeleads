@@ -2,17 +2,10 @@ const axios = require('axios');
 const db = require('../config/db');
 
 const FIELD_MASK = [
-  'places.id',
-  'places.displayName',
-  'places.formattedAddress',
-  'places.nationalPhoneNumber',
-  'places.internationalPhoneNumber',
-  'places.websiteUri',
-  'places.rating',
-  'places.userRatingCount',
-  'places.primaryTypeDisplayName',
-  'places.businessStatus',
-  'places.googleMapsUri',
+  'places.id', 'places.displayName', 'places.formattedAddress',
+  'places.nationalPhoneNumber', 'places.internationalPhoneNumber',
+  'places.websiteUri', 'places.rating', 'places.userRatingCount',
+  'places.primaryTypeDisplayName', 'places.businessStatus', 'places.googleMapsUri',
   'nextPageToken',
 ].join(',');
 
@@ -20,11 +13,36 @@ function clean(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
-function buildTextQuery({ sector, location, extraTerm = '' }) {
-  const parts = [clean(sector), clean(extraTerm), clean(location)].filter(Boolean);
-  if (!parts[0]) throw new Error('Setor é obrigatório para buscar no Google Maps.');
+function normalizeArea(area = {}) {
+  const mode = area?.mode === 'radius' ? 'radius' : 'text';
+  if (mode === 'text') return { mode: 'text' };
+  const latitude = Number(area.latitude);
+  const longitude = Number(area.longitude);
+  const radiusKm = Number(area.radiusKm || 5);
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) throw new Error('Latitude inválida para a área de busca.');
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) throw new Error('Longitude inválida para a área de busca.');
+  if (!Number.isFinite(radiusKm) || radiusKm < 1 || radiusKm > 50) throw new Error('O raio deve ficar entre 1 e 50 km.');
+  return { mode, latitude, longitude, radiusKm };
+}
+
+function buildTextQuery({ sector, location, extraTerm = '', area = {} }) {
+  const normalizedArea = normalizeArea(area);
+  const sectorText = clean(sector);
+  if (!sectorText) throw new Error('Setor é obrigatório para buscar no Google Maps.');
+  if (normalizedArea.mode === 'radius') return [sectorText, clean(extraTerm)].filter(Boolean).join(' ');
   if (!clean(location)) throw new Error('Cidade ou região é obrigatória para buscar no Google Maps.');
-  return parts.join(' ');
+  return [sectorText, clean(extraTerm), clean(location)].filter(Boolean).join(' ');
+}
+
+function buildLocationBias(area = {}) {
+  const normalized = normalizeArea(area);
+  if (normalized.mode !== 'radius') return null;
+  return {
+    circle: {
+      center: { latitude: normalized.latitude, longitude: normalized.longitude },
+      radius: normalized.radiusKm * 1000,
+    },
+  };
 }
 
 function normalizeBrazilPhone(value) {
@@ -47,46 +65,32 @@ function normalizePlace(place = {}) {
   const name = clean(place.name || place.displayName?.text || place.displayName || '');
   const whatsapp = clean(place.whatsapp) || (isBrazilianMobile(phone) ? normalizedPhone : null);
   return {
-    placeId: clean(place.placeId || place.id),
-    name,
-    address: clean(place.address || place.formattedAddress),
-    phone,
-    phoneDigits: normalizedPhone || null,
-    whatsapp: whatsapp || null,
+    placeId: clean(place.placeId || place.id), name,
+    address: clean(place.address || place.formattedAddress), phone,
+    phoneDigits: normalizedPhone || null, whatsapp: whatsapp || null,
     website: clean(place.website || place.websiteUri) || null,
-    rating: Number(place.rating || 0),
-    reviews: Number(place.reviews ?? place.userRatingCount ?? 0),
+    rating: Number(place.rating || 0), reviews: Number(place.reviews ?? place.userRatingCount ?? 0),
     category: clean(place.category || place.primaryTypeDisplayName?.text || place.primaryTypeDisplayName || ''),
-    businessStatus: clean(place.businessStatus),
-    mapsUrl: clean(place.mapsUrl || place.googleMapsUri) || null,
+    businessStatus: clean(place.businessStatus), mapsUrl: clean(place.mapsUrl || place.googleMapsUri) || null,
   };
 }
 
 function applyFilters(places, filters = {}) {
   const minRating = Math.min(5, Math.max(0, Number(filters.minRating) || 0));
   const minReviews = Math.max(0, Number(filters.minReviews) || 0);
-  const requirePhone = Boolean(filters.requirePhone);
-  const requireWebsite = Boolean(filters.requireWebsite);
-  const requireWhatsapp = Boolean(filters.requireWhatsapp);
-  const operationalOnly = filters.operationalOnly !== false;
-
   return (places || []).filter((place) => {
-    if (requirePhone && !place.phone) return false;
-    if (requireWebsite && !place.website) return false;
-    if (requireWhatsapp && !place.whatsapp) return false;
-    if (place.rating < minRating) return false;
-    if (place.reviews < minReviews) return false;
-    if (operationalOnly && place.businessStatus && place.businessStatus !== 'OPERATIONAL') return false;
+    if (filters.requirePhone && !place.phone) return false;
+    if (filters.requireWebsite && !place.website) return false;
+    if (filters.requireWhatsapp && !place.whatsapp) return false;
+    if (place.rating < minRating || place.reviews < minReviews) return false;
+    if (filters.operationalOnly !== false && place.businessStatus && place.businessStatus !== 'OPERATIONAL') return false;
     return true;
   });
 }
 
 async function getApiKey(nicheId) {
   const result = await db.query(
-    `SELECT api_key FROM credentials
-      WHERE niche_id = $1 AND provider = 'google_places'
-      LIMIT 1`,
-    [nicheId]
+    `SELECT api_key FROM credentials WHERE niche_id = $1 AND provider = 'google_places' LIMIT 1`, [nicheId]
   );
   const apiKey = result.rows[0]?.api_key;
   if (!apiKey) throw new Error('Configure a chave Google Places API para esta campanha.');
@@ -96,23 +100,17 @@ async function getApiKey(nicheId) {
 async function searchPlaces(nicheId, params = {}) {
   const startedAt = Date.now();
   const apiKey = await getApiKey(nicheId);
-  const textQuery = buildTextQuery(params);
+  const area = normalizeArea(params.area || {});
+  const textQuery = buildTextQuery({ ...params, area });
   const pageSize = Math.min(20, Math.max(1, Number(params.pageSize) || 20));
-  const body = {
-    textQuery,
-    pageSize,
-    languageCode: 'pt-BR',
-    regionCode: 'BR',
-  };
+  const body = { textQuery, pageSize, languageCode: 'pt-BR', regionCode: 'BR', includePureServiceAreaBusinesses: true };
   if (params.pageToken) body.pageToken = String(params.pageToken);
+  const locationBias = buildLocationBias(area);
+  if (locationBias) body.locationBias = locationBias;
 
-  console.log(`[google-maps] search start niche=${nicheId} query=${JSON.stringify(textQuery)} pageSize=${pageSize}`);
+  console.log(`[google-maps] search start niche=${nicheId} query=${JSON.stringify(textQuery)} area=${JSON.stringify(area)} pageSize=${pageSize}`);
   const response = await axios.post('https://places.googleapis.com/v1/places:searchText', body, {
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': FIELD_MASK,
-    },
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey, 'X-Goog-FieldMask': FIELD_MASK },
     timeout: Math.min(20000, Math.max(5000, Number(process.env.GOOGLE_PLACES_TIMEOUT_MS) || 12000)),
   });
 
@@ -120,12 +118,8 @@ async function searchPlaces(nicheId, params = {}) {
   const normalized = raw.map(normalizePlace).filter((item) => item.placeId && item.name);
   const filtered = applyFilters(normalized, params.filters || {});
   const result = {
-    query: textQuery,
-    totalRaw: normalized.length,
-    totalFiltered: filtered.length,
-    places: filtered,
-    nextPageToken: response.data?.nextPageToken || null,
-    durationMs: Date.now() - startedAt,
+    query: textQuery, area, totalRaw: normalized.length, totalFiltered: filtered.length,
+    places: filtered, nextPageToken: response.data?.nextPageToken || null, durationMs: Date.now() - startedAt,
   };
   console.log(`[google-maps] search done niche=${nicheId} raw=${result.totalRaw} filtered=${result.totalFiltered} durationMs=${result.durationMs}`);
   return result;
@@ -150,49 +144,27 @@ async function importPlaces(nicheId, places = [], query = '') {
          )
          SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,'enriquecido',$10,$11,$12,$13,$14,'google_maps',$15
          WHERE NOT EXISTS (
-           SELECT 1 FROM leads
-            WHERE niche_id = $1
-              AND (google_place_id = $10 OR ($4::text IS NOT NULL AND whatsapp = $4))
-         )
-         RETURNING id`,
-        [
-          nicheId,
-          place.name.slice(0, 250),
-          place.phoneDigits,
-          place.whatsapp,
-          place.whatsapp ? `https://wa.me/${place.whatsapp}` : null,
-          snippet.slice(0, 1000),
-          sourceUrl,
-          clean(query).slice(0, 500),
-          place.phoneDigits ? 'pendente' : 'sem_telefone',
-          place.placeId,
-          place.rating || null,
-          place.reviews || null,
-          place.mapsUrl,
-          place.website,
-          `Google Maps import · ${place.address}`.slice(0, 2000),
-        ]
+           SELECT 1 FROM leads WHERE niche_id = $1
+             AND (google_place_id = $10 OR ($4::text IS NOT NULL AND whatsapp = $4))
+         ) RETURNING id`,
+        [nicheId, place.name.slice(0, 250), place.phoneDigits, place.whatsapp,
+          place.whatsapp ? `https://wa.me/${place.whatsapp}` : null, snippet.slice(0, 1000), sourceUrl,
+          clean(query).slice(0, 500), place.phoneDigits ? 'pendente' : 'sem_telefone', place.placeId,
+          place.rating || null, place.reviews || null, place.mapsUrl, place.website,
+          `Google Maps import · ${place.address}`.slice(0, 2000)]
       );
-      if (result.rowCount) inserted += 1;
-      else duplicates += 1;
+      if (result.rowCount) inserted += 1; else duplicates += 1;
     }
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
-  } finally {
-    client.release();
-  }
+  } finally { client.release(); }
   console.log(`[google-maps] import niche=${nicheId} received=${places.length} inserted=${inserted} duplicates=${duplicates}`);
   return { received: places.length, inserted, duplicates };
 }
 
 module.exports = {
-  FIELD_MASK,
-  buildTextQuery,
-  normalizeBrazilPhone,
-  normalizePlace,
-  applyFilters,
-  searchPlaces,
-  importPlaces,
+  FIELD_MASK, normalizeArea, buildTextQuery, buildLocationBias,
+  normalizeBrazilPhone, normalizePlace, applyFilters, searchPlaces, importPlaces,
 };
