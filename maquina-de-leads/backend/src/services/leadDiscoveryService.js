@@ -9,8 +9,7 @@ const VALID_DDDS = new Set([
 
 const BLACKLIST_DOMAINS = ['amazon.', 'microsoft.', 'youtube.com', 'cinemark.', 'thehill.com'];
 const BLACKLIST_TITLES = ['olx', 'playlist', 'como ativar whatsapp', 'vaga de emprego'];
-const DEFAULT_CONTEXT = ['contato', 'telefone', 'whatsapp', 'cnpj'];
-const SOCIAL_SITES = ['site:instagram.com', 'site:facebook.com', 'site:linktr.ee'];
+const DEFAULT_CONTEXT = ['telefone', 'whatsapp', 'contato', 'cnpj'];
 
 function unique(values) {
   return [...new Set(values.map((value) => String(value || '').trim()).filter(Boolean))];
@@ -75,19 +74,23 @@ function buildQueries(keywords, contextTerms, maxQueries = 24, location = '') {
     if (query && !queries.includes(query) && queries.length < maxQueries) queries.push(query);
   };
 
+  // Prioridade: sinais de telefone/WhatsApp em Instagram, Facebook e Google Maps.
   for (const keywordRaw of unique(keywords)) {
     const keyword = keywordRaw.replace(/^["']+|["']+$/g, '').trim();
     if (!keyword) continue;
 
-    add(`"${keyword}" ${location}`);
-    add(`"${keyword}" empresa ${location}`);
-    add(`"${keyword}" contato ${location}`);
-    add(`"${keyword}" telefone ${location}`);
+    add(`"${keyword}" telefone whatsapp ${location} site:instagram.com`);
+    add(`"${keyword}" telefone whatsapp ${location} site:facebook.com`);
+    add(`"${keyword}" telefone ${location} site:google.com/maps`);
     add(`"${keyword}" whatsapp ${location}`);
+    add(`"${keyword}" telefone ${location}`);
+    add(`"${keyword}" contato ${location}`);
+    add(`"${keyword}" empresa ${location}`);
+    add(`"${keyword}" ${location}`);
     add(`"${keyword}" cnpj ${location}`);
-
+    add(`"${keyword}" ${location} site:instagram.com`);
+    add(`"${keyword}" ${location} site:facebook.com`);
     for (const context of contexts) add(`"${keyword}" ${context} ${location}`);
-    for (const site of SOCIAL_SITES) add(`"${keyword}" ${location} ${site}`);
 
     if (queries.length >= maxQueries) break;
   }
@@ -103,17 +106,18 @@ function normalizeResults(response, query) {
     results.push({
       title: item.title || '',
       link: item.url || item.link || item.href || '',
-      snippet: item.content || item.snippet || item.body || '',
+      snippet: [item.content || item.snippet || item.body || '', item.phone || ''].filter(Boolean).join(' · '),
       query,
     });
   }
 
   if (Array.isArray(data.places)) {
     for (const place of data.places) {
+      const mapLink = place.link || place.url || place.mapsUrl || place.googleMapsUri || '';
       results.push({
         title: place.title || place.name || '',
-        link: place.website || place.link || place.url || '',
-        snippet: [place.address, place.category, place.phone].filter(Boolean).join(' · '),
+        link: place.website || mapLink,
+        snippet: [place.address, place.category, place.phone, mapLink].filter(Boolean).join(' · '),
         query,
       });
     }
@@ -177,10 +181,10 @@ async function executeProviders(query, config) {
 
   if (serper?.api_key) {
     const headers = { 'X-API-KEY': serper.api_key, 'Content-Type': 'application/json' };
-    requests.push(axios.post('https://google.serper.dev/search', { q: query, gl: 'br', hl: 'pt-br' }, { headers, timeout }));
-    names.push('serper-search');
     requests.push(axios.post('https://google.serper.dev/maps', { q: query, gl: 'br', hl: 'pt-br' }, { headers, timeout }));
     names.push('serper-maps');
+    requests.push(axios.post('https://google.serper.dev/search', { q: query, gl: 'br', hl: 'pt-br' }, { headers, timeout }));
+    names.push('serper-search');
   }
 
   const searxngUrl = process.env.SEARXNG_URL || 'http://searxng:8080/search';
@@ -195,10 +199,10 @@ async function executeProviders(query, config) {
   const robotUrl = process.env.ROBO_PYTHON_URL;
   if (robotUrl) {
     const base = robotUrl.replace(/\/$/, '');
-    requests.push(axios.post(`${base}/search`, { q: query }, { timeout }));
-    names.push('robot-search');
     requests.push(axios.post(`${base}/maps`, { q: query }, { timeout }));
     names.push('robot-maps');
+    requests.push(axios.post(`${base}/search`, { q: query }, { timeout }));
+    names.push('robot-search');
   }
 
   if (!requests.length) throw new Error('Nenhum provedor de descoberta configurado.');
@@ -216,8 +220,8 @@ async function executeProviders(query, config) {
 async function saveLead(lead) {
   const result = await db.query(
     `INSERT INTO leads
-       (niche_id, nome_perfil, wa_username, whatsapp, link_whatsapp, snippet, fonte_url, original_query, status)
-     SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
+       (niche_id, nome_perfil, wa_username, whatsapp, link_whatsapp, snippet, fonte_url, original_query, status, source_category)
+     SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
      WHERE NOT EXISTS (
        SELECT 1 FROM leads
         WHERE niche_id = $1
@@ -225,7 +229,7 @@ async function saveLead(lead) {
      )
      RETURNING id`,
     [lead.nicheId, lead.nomePerfil, lead.waUsername, lead.whatsapp, lead.linkWhatsapp,
-      lead.snippet, lead.fonteUrl, lead.originalQuery, lead.status]
+      lead.snippet, lead.fonteUrl, lead.originalQuery, lead.status, lead.fonteCategoria]
   );
   return result.rows.length > 0;
 }
@@ -297,6 +301,11 @@ async function discover(nicheId, options = {}) {
     if (await saveLead(lead)) inserted += 1;
   }
 
+  const bySource = leads.reduce((acc, lead) => {
+    acc[lead.fonteCategoria] = (acc[lead.fonteCategoria] || 0) + 1;
+    return acc;
+  }, {});
+  const withPhone = leads.filter((lead) => lead.whatsapp).length;
   const result = {
     nicheId,
     durationMs: Date.now() - startedAt,
@@ -306,10 +315,12 @@ async function discover(nicheId, options = {}) {
     inserted,
     duplicates: leads.length - inserted,
     providerErrors,
+    withPhone,
+    bySource,
     rejected,
     diagnostics,
   };
-  console.log(`[discovery] fim niche=${nicheId} durationMs=${result.durationMs} raw=${rawResults} candidates=${leads.length} inserted=${inserted} providerErrors=${providerErrors} rejected=${JSON.stringify(rejected)}`);
+  console.log(`[discovery] fim niche=${nicheId} durationMs=${result.durationMs} raw=${rawResults} candidates=${leads.length} phones=${withPhone} inserted=${inserted} sources=${JSON.stringify(bySource)} providerErrors=${providerErrors} rejected=${JSON.stringify(rejected)}`);
   return result;
 }
 
