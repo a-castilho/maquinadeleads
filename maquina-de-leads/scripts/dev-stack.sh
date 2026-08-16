@@ -6,15 +6,63 @@ cd "$ROOT"
 
 ACTION="${1:-up}"
 
+load_existing_postgres_credentials() {
+    local container="postgres"
+    local mount_match="false"
+
+    if ! docker inspect "$container" >/dev/null 2>&1; then
+        return 1
+    fi
+
+    while IFS= read -r mount_name; do
+        if [ "$mount_name" = "maquina-de-leads_postgres_data" ]; then
+            mount_match="true"
+            break
+        fi
+    done < <(docker inspect "$container" --format '{{range .Mounts}}{{println .Name}}{{end}}')
+
+    if [ "$mount_match" != "true" ]; then
+        return 1
+    fi
+
+    POSTGRES_USER=""
+    POSTGRES_PASSWORD=""
+    POSTGRES_DB=""
+
+    while IFS='=' read -r key value; do
+        case "$key" in
+            POSTGRES_USER) POSTGRES_USER="$value" ;;
+            POSTGRES_PASSWORD) POSTGRES_PASSWORD="$value" ;;
+            POSTGRES_DB) POSTGRES_DB="$value" ;;
+        esac
+    done < <(docker inspect "$container" --format '{{range .Config.Env}}{{println .}}{{end}}')
+
+    if [ -z "$POSTGRES_PASSWORD" ]; then
+        return 1
+    fi
+
+    POSTGRES_USER="${POSTGRES_USER:-leads_user}"
+    POSTGRES_DB="${POSTGRES_DB:-maquina_de_leads}"
+    return 0
+}
+
 ensure_env() {
     if [ ! -f .env ]; then
-        POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+        if load_existing_postgres_credentials; then
+            echo "POSTGRES_EXISTENTE_DETECTADO"
+        else
+            POSTGRES_USER="leads_user"
+            POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+            POSTGRES_DB="maquina_de_leads"
+            echo "POSTGRES_NOVO_CONFIGURADO"
+        fi
+
         JWT_SECRET="$(openssl rand -hex 48)"
 
         cat > .env <<ENVEOF
-POSTGRES_USER=leads_user
+POSTGRES_USER=${POSTGRES_USER}
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-POSTGRES_DB=maquina_de_leads
+POSTGRES_DB=${POSTGRES_DB}
 POSTGRES_PORT=5432
 
 JWT_SECRET=${JWT_SECRET}
