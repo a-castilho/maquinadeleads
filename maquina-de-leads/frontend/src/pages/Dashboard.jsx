@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import AppSidebar from '../components/AppSidebar';
 
 const STATUS_LABELS = {
   draft: 'Rascunho',
@@ -84,29 +85,7 @@ export default function Dashboard() {
 
   return (
     <div className="app-shell">
-      <aside className="app-sidebar">
-        <div className="brand-lockup">
-          <div className="brand-mark">M</div>
-          <div><strong>Máquina de Leads</strong><span>Motor de prospecção</span></div>
-        </div>
-
-        <nav className="sidebar-nav">
-          <a href="#visao-geral" className="sidebar-link active"><span>⌂</span> Visão geral</a>
-          <a href="#campanhas" className="sidebar-link"><span>◎</span> Campanhas</a>
-          <Link to="/perfil-empresa" className="sidebar-link"><span>◇</span> Perfil da empresa</Link>
-        </nav>
-
-        <div className="sidebar-spacer" />
-        <div className="sidebar-status">
-          <span className="status-dot" />
-          <div><strong>Sistema online</strong><small>Backend e worker ativos</small></div>
-        </div>
-        <div className="sidebar-user">
-          <div className="avatar">{(user?.name || 'U').slice(0, 1).toUpperCase()}</div>
-          <div><strong>{user?.name || 'Usuário'}</strong><span>Conta ativa</span></div>
-          <button className="icon-button" onClick={logout} title="Sair">↗</button>
-        </div>
-      </aside>
+      <AppSidebar user={user} onLogout={logout} />
 
       <main className="dashboard-main">
         <header className="dashboard-header fade-up">
