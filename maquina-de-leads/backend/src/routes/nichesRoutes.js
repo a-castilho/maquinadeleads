@@ -7,6 +7,7 @@ const controllers = {
   credentials: require('../controllers/credentialsController'),
   leads: require('../controllers/leadsController'),
   nativeJobs: require('../controllers/nativeJobsController'),
+  nativeRecovery: require('../controllers/nativeRecoveryController'),
   lifecycle: require('../controllers/campaignLifecycleController'),
   aiKeywords: require('../controllers/aiKeywordsController'),
 };
@@ -18,6 +19,7 @@ const requiredMethods = {
   credentials: ['list', 'upsert'],
   leads: ['list', 'getOne', 'update', 'remove', 'clearNicheLeads', 'stats', 'bulkUpdate'],
   nativeJobs: ['startDiscovery','startEnrichment','startScoring','startSending','activate','pause','resume','processBatch','list','executions'],
+  nativeRecovery: ['recover'],
   lifecycle: ['complete'],
   aiKeywords: ['generate', 'listRuns'],
 };
@@ -62,6 +64,7 @@ router.post('/:nicheId/native/activate', controllers.nativeJobs.activate);
 router.post('/:nicheId/native/pause', controllers.nativeJobs.pause);
 router.post('/:nicheId/native/resume', controllers.nativeJobs.resume);
 router.post('/:nicheId/native/process', controllers.nativeJobs.processBatch);
+router.post('/:nicheId/native/recover', controllers.nativeRecovery.recover);
 router.post('/:nicheId/native/complete', controllers.lifecycle.complete);
 router.get('/:nicheId/native/jobs', controllers.nativeJobs.list);
 router.get('/:nicheId/native/jobs/:jobId/executions', controllers.nativeJobs.executions);
