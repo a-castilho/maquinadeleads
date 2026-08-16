@@ -21,7 +21,7 @@ const requiredMethods = {
   credentials: ['list', 'upsert'],
   leads: ['list', 'getOne', 'update', 'remove', 'clearNicheLeads', 'stats', 'bulkUpdate'],
   nativeJobs: ['startDiscovery','startEnrichment','startScoring','startSending','activate','pause','resume','processBatch','list','executions'],
-  nativeRecovery: ['recover'],
+  nativeRecovery: ['recover', 'restart'],
   nativePreparation: ['start'],
   lifecycle: ['complete'],
   aiKeywords: ['generate', 'listRuns', 'chat', 'chatHistory', 'clearChat'],
@@ -38,7 +38,6 @@ for (const [ctrlName, methods] of Object.entries(requiredMethods)) {
 }
 
 const router = express.Router();
-
 router.get('/', controllers.niches.list);
 router.post('/', controllers.niches.create);
 router.get('/:id', controllers.niches.getOne);
@@ -66,10 +65,8 @@ router.put('/:nicheId/credentials', controllers.credentials.upsert);
 router.post('/:nicheId/google-maps/search', controllers.googleMaps.search);
 router.post('/:nicheId/google-maps/import', controllers.googleMaps.importLeads);
 
-// Descobrir leads agora inicia a preparação completa: descoberta -> enriquecimento -> scoring.
 router.post('/:nicheId/native/prepare', controllers.nativePreparation.start);
 router.post('/:nicheId/native/discover', controllers.nativePreparation.start);
-// Endpoint técnico para executar somente a descoberta quando necessário.
 router.post('/:nicheId/native/discover-only', controllers.nativeJobs.startDiscovery);
 router.post('/:nicheId/native/enrich', controllers.nativeJobs.startEnrichment);
 router.post('/:nicheId/native/score', controllers.nativeJobs.startScoring);
@@ -79,6 +76,7 @@ router.post('/:nicheId/native/pause', controllers.nativeJobs.pause);
 router.post('/:nicheId/native/resume', controllers.nativeJobs.resume);
 router.post('/:nicheId/native/process', controllers.nativeJobs.processBatch);
 router.post('/:nicheId/native/recover', controllers.nativeRecovery.recover);
+router.post('/:nicheId/native/restart', controllers.nativeRecovery.restart);
 router.post('/:nicheId/native/complete', controllers.lifecycle.complete);
 router.get('/:nicheId/native/jobs', controllers.nativeJobs.list);
 router.get('/:nicheId/native/jobs/:jobId/executions', controllers.nativeJobs.executions);
