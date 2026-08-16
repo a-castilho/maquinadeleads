@@ -6,9 +6,8 @@ cd "$ROOT"
 
 ACTION="${1:-up}"
 
-load_existing_postgres_credentials() {
+is_existing_project_postgres() {
     local container="postgres"
-    local mount_match="false"
 
     if ! docker inspect "$container" >/dev/null 2>&1; then
         return 1
@@ -16,12 +15,17 @@ load_existing_postgres_credentials() {
 
     while IFS= read -r mount_name; do
         if [ "$mount_name" = "maquina-de-leads_postgres_data" ]; then
-            mount_match="true"
-            break
+            return 0
         fi
     done < <(docker inspect "$container" --format '{{range .Mounts}}{{println .Name}}{{end}}')
 
-    if [ "$mount_match" != "true" ]; then
+    return 1
+}
+
+load_existing_postgres_credentials() {
+    local container="postgres"
+
+    if ! is_existing_project_postgres; then
         return 1
     fi
 
@@ -44,6 +48,46 @@ load_existing_postgres_credentials() {
     POSTGRES_USER="${POSTGRES_USER:-leads_user}"
     POSTGRES_DB="${POSTGRES_DB:-maquina_de_leads}"
     return 0
+}
+
+validate_existing_env() {
+    local configured_user configured_password configured_db
+    local running_user running_password running_db
+
+    if [ ! -f .env ] || ! is_existing_project_postgres; then
+        return 0
+    fi
+
+    set -a
+    source .env
+    set +a
+
+    configured_user="${POSTGRES_USER:-}"
+    configured_password="${POSTGRES_PASSWORD:-}"
+    configured_db="${POSTGRES_DB:-}"
+
+    if ! load_existing_postgres_credentials; then
+        echo "ERRO: não foi possível ler as credenciais do Postgres existente." >&2
+        exit 1
+    fi
+
+    running_user="$POSTGRES_USER"
+    running_password="$POSTGRES_PASSWORD"
+    running_db="$POSTGRES_DB"
+
+    if [ "$configured_user" != "$running_user" ] || \
+       [ "$configured_password" != "$running_password" ] || \
+       [ "$configured_db" != "$running_db" ]; then
+        cat >&2 <<'ERROR'
+ERRO_ENV_POSTGRES_DIVERGENTE
+O .env atual não corresponde ao container PostgreSQL que usa o volume
+maquina-de-leads_postgres_data.
+Nenhum container novo foi iniciado. Corrija o .env antes de continuar.
+ERROR
+        exit 1
+    fi
+
+    echo "ENV_POSTGRES_VALIDADO"
 }
 
 ensure_env() {
@@ -80,6 +124,8 @@ ENVEOF
         chmod 600 .env
         echo "ENV_LOCAL_CRIADO"
     fi
+
+    validate_existing_env
 }
 
 load_env() {
