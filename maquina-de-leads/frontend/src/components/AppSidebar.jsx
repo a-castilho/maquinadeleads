@@ -64,6 +64,7 @@ export default function AppSidebar({ user, onLogout }) {
   const campaignsActive = location.pathname.startsWith('/campanhas') || location.hash === '#campanhas';
   const profileActive = location.pathname === '/perfil-empresa';
   const aiActive = location.pathname === '/ia-palavras-chave';
+  const mapsActive = location.pathname === '/google-maps-leads';
 
   return (
     <>
@@ -96,6 +97,9 @@ export default function AppSidebar({ user, onLogout }) {
           </Link>
           <Link to="/ia-palavras-chave" className={`sidebar-link ${aiActive ? 'active' : ''}`} onClick={closeMobile} title="IA para termos de descoberta">
             <NavIcon>✦</NavIcon><span className="sidebar-copy">IA · Palavras-chave</span>
+          </Link>
+          <Link to="/google-maps-leads" className={`sidebar-link ${mapsActive ? 'active' : ''}`} onClick={closeMobile} title="Buscar leads no Google Maps">
+            <NavIcon>⌖</NavIcon><span className="sidebar-copy">Google Maps Leads</span>
           </Link>
         </nav>
 
