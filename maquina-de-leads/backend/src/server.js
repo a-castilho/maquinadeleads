@@ -27,7 +27,7 @@ app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
 app.use(express.json({ limit: '1mb' }));
 app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, limit: 100, standardHeaders: 'draft-7', legacyHeaders: false }));
 
-app.get('/health', (req, res) => res.json({ status: 'ok', service: 'maquina-de-leads', orchestration: 'native' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', service: 'maquina-de-leads', orchestration: 'native', worker: process.env.RUN_WORKER !== 'false' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/campaigns', requireAuth, campaignRoutes);
 app.use('/api/niches', requireAuth, nichesRoutes);
@@ -39,4 +39,9 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = Number(process.env.PORT) || 4000;
-app.listen(PORT, () => console.log(`🚀 Máquina de Leads API nativa rodando na porta ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Máquina de Leads API nativa rodando na porta ${PORT}`);
+  if (process.env.RUN_WORKER !== 'false') {
+    require('./worker');
+  }
+});
