@@ -7,7 +7,7 @@ services:
     dockerfilePath: ./Dockerfile
     dockerCommand: npm start
     preDeployCommand: npm run migrate
-    autoDeployTrigger: off
+    autoDeployTrigger: checksPass
     healthCheckPath: /health
     envVars:
       - key: PORT
@@ -22,10 +22,6 @@ services:
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 7d
-      - key: FRONTEND_URL
-        sync: false
-      - key: SEARXNG_URL
-        sync: false
 
   - type: web
     name: maquinadeleads-homolog-web
@@ -33,14 +29,11 @@ services:
     rootDir: maquina-de-leads/frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
-    autoDeployTrigger: off
+    autoDeployTrigger: checksPass
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
-    envVars:
-      - key: VITE_API_URL
-        sync: false
 
 databases:
   - name: maquinadeleads-homolog-db
