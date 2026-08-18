@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd maquina-de-leads/frontend && npm ci && npm run build",
+  "outputDirectory": "maquina-de-leads/frontend/dist",
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/((?!assets/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
