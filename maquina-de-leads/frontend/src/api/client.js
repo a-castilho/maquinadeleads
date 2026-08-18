@@ -1,7 +1,33 @@
 import axios from 'axios';
 
+function resolveApiUrl() {
+  const configured = import.meta.env.VITE_API_URL?.trim();
+  if (configured) return configured.replace(/\/$/, '');
+
+  if (typeof window !== 'undefined') {
+    const { hostname, protocol } = window.location;
+
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:4000/api';
+    }
+
+    if (hostname.includes('maquinadeleads-homolog-web.onrender.com')) {
+      return 'https://maquinadeleads-homolog-api.onrender.com/api';
+    }
+
+    if (hostname.endsWith('.vercel.app')) {
+      return 'https://maquinadeleads-homolog-api.onrender.com/api';
+    }
+
+    return `${protocol}//${hostname.replace('-web.', '-api.')}/api`;
+  }
+
+  return 'https://maquinadeleads-homolog-api.onrender.com/api';
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
+  baseURL: resolveApiUrl(),
+  timeout: 30000,
 });
 
 api.interceptors.request.use((config) => {
@@ -14,12 +40,8 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      const code = err.response.data?.code;
-      if (code === 'TOKEN_EXPIRED') {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-      } else {
-        localStorage.removeItem('token');
+      localStorage.removeItem('token');
+      if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
     }
