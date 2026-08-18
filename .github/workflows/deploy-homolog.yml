@@ -31,41 +31,76 @@ jobs:
             echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Validate deploy hooks
+      - name: Validate Render API access
         env:
-          BACKEND_HOOK: ${{ secrets.RENDER_HOMOLOG_BACKEND_DEPLOY_HOOK }}
-          FRONTEND_HOOK: ${{ secrets.RENDER_HOMOLOG_FRONTEND_DEPLOY_HOOK }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
         shell: bash
         run: |
-          test -n "$BACKEND_HOOK" || { echo "::error::RENDER_HOMOLOG_BACKEND_DEPLOY_HOOK is not configured"; exit 1; }
-          test -n "$FRONTEND_HOOK" || { echo "::error::RENDER_HOMOLOG_FRONTEND_DEPLOY_HOOK is not configured"; exit 1; }
+          test -n "$RENDER_API_KEY" || { echo "::error::RENDER_API_KEY is not configured"; exit 1; }
+          curl --fail --show-error --silent \
+            -H "Accept: application/json" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            "https://api.render.com/v1/services?limit=1" >/dev/null
+
+      - name: Resolve Render services
+        id: services
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        shell: bash
+        run: |
+          resolve_service() {
+            local name="$1"
+            curl --fail --show-error --silent --get \
+              -H "Accept: application/json" \
+              -H "Authorization: Bearer $RENDER_API_KEY" \
+              --data-urlencode "name=$name" \
+              --data-urlencode "limit=20" \
+              "https://api.render.com/v1/services" \
+              | jq -r 'map(.service // .) | .[0].id // empty'
+          }
+
+          BACKEND_ID="$(resolve_service maquinadeleads-homolog-api)"
+          FRONTEND_ID="$(resolve_service maquinadeleads-homolog-web)"
+
+          test -n "$BACKEND_ID" || { echo "::error::Render service maquinadeleads-homolog-api not found"; exit 1; }
+          test -n "$FRONTEND_ID" || { echo "::error::Render service maquinadeleads-homolog-web not found"; exit 1; }
+
+          echo "backend_id=$BACKEND_ID" >> "$GITHUB_OUTPUT"
+          echo "frontend_id=$FRONTEND_ID" >> "$GITHUB_OUTPUT"
 
       - name: Deploy backend to Render homologation
         env:
-          HOOK: ${{ secrets.RENDER_HOMOLOG_BACKEND_DEPLOY_HOOK }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ steps.services.outputs.backend_id }}
           SHA: ${{ steps.commit.outputs.sha }}
         shell: bash
         run: |
-          SEP='?'; [[ "$HOOK" == *'?'* ]] && SEP='&'
-          curl --fail --show-error --silent --retry 3 --retry-delay 5 --request POST "${HOOK}${SEP}ref=${SHA}"
-          echo
-          echo "Backend deploy requested for ${SHA}"
+          curl --fail --show-error --silent --request POST \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            --data "{\"commitId\":\"$SHA\",\"clearCache\":\"do_not_clear\"}" \
+            "https://api.render.com/v1/services/$SERVICE_ID/deploys" | jq '{id,status,commit}'
 
       - name: Deploy frontend to Render homologation
         env:
-          HOOK: ${{ secrets.RENDER_HOMOLOG_FRONTEND_DEPLOY_HOOK }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ steps.services.outputs.frontend_id }}
           SHA: ${{ steps.commit.outputs.sha }}
         shell: bash
         run: |
-          SEP='?'; [[ "$HOOK" == *'?'* ]] && SEP='&'
-          curl --fail --show-error --silent --retry 3 --retry-delay 5 --request POST "${HOOK}${SEP}ref=${SHA}"
-          echo
-          echo "Frontend deploy requested for ${SHA}"
+          curl --fail --show-error --silent --request POST \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            --data "{\"commitId\":\"$SHA\",\"clearCache\":\"do_not_clear\"}" \
+            "https://api.render.com/v1/services/$SERVICE_ID/deploys" | jq '{id,status,commit}'
 
       - name: Homologation summary
         shell: bash
         run: |
           echo "### Máquina de Leads · Homologação" >> "$GITHUB_STEP_SUMMARY"
           echo "- Commit: \`${{ steps.commit.outputs.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Backend: deploy solicitado à Render" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Frontend: deploy solicitado à Render" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Backend Render: deploy solicitado via API" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Frontend Render: deploy solicitado via API" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Banco Neon: schema de campanhas validado" >> "$GITHUB_STEP_SUMMARY"
