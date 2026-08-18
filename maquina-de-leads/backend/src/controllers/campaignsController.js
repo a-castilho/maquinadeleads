@@ -5,11 +5,12 @@ function slugify(text) {
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-async function ensureNiche(userId, nicheName) {
-  const existing = await db.query('SELECT * FROM niches WHERE user_id=$1 AND lower(name)=lower($2) LIMIT 1', [userId, nicheName]);
+async function ensureNiche(client, userId, nicheName) {
+  const existing = await client.query('SELECT * FROM niches WHERE user_id=$1 AND lower(name)=lower($2) LIMIT 1', [userId, nicheName]);
   if (existing.rows[0]) return existing.rows[0];
+
   const slug = `${slugify(nicheName)}-${Date.now().toString(36)}`;
-  return (await db.query(
+  return (await client.query(
     'INSERT INTO niches (user_id,name,slug,description) VALUES ($1,$2,$3,$4) RETURNING *',
     [userId, nicheName, slug, 'Criado automaticamente por uma campanha.']
   )).rows[0];
@@ -36,19 +37,45 @@ async function list(req, res) {
 async function create(req, res) {
   const { name, niche, location, offer, objective } = req.body;
   if (!name?.trim() || !niche?.trim()) return res.status(400).json({ error: 'Nome e nicho são obrigatórios.' });
+
+  const client = await db.pool.connect();
   try {
-    const nicheRow = await ensureNiche(req.user.sub, niche.trim());
-    const draft = { niche: niche.trim(), location: location?.trim(), offer: offer?.trim(), objective: objective?.trim() };
+    await client.query('BEGIN');
+
+    const nicheName = niche.trim();
+    const nicheRow = await ensureNiche(client, req.user.sub, nicheName);
+    const draft = {
+      niche: nicheName,
+      location: location?.trim() || '',
+      offer: offer?.trim() || '',
+      objective: objective?.trim() || '',
+    };
     const strategy = generateStrategy(draft);
-    const result = await db.query(
+
+    const result = await client.query(
       `INSERT INTO campaigns (user_id,niche_id,name,niche,location,offer,objective,strategy,message_template)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [req.user.sub, nicheRow.id, name.trim(), niche.trim(), location || null, offer || null, objective || null, JSON.stringify(strategy), strategy.initialMessage]
+      [
+        req.user.sub,
+        nicheRow.id,
+        name.trim(),
+        nicheName,
+        draft.location || null,
+        draft.offer || null,
+        draft.objective || null,
+        JSON.stringify(strategy),
+        strategy.initialMessage,
+      ]
     );
+
+    await client.query('COMMIT');
     res.status(201).json({ campaign: result.rows[0] });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('[campaigns.create]', err);
     res.status(500).json({ error: 'Erro ao criar campanha.' });
+  } finally {
+    client.release();
   }
 }
 
@@ -107,14 +134,20 @@ async function updateLeadStage(req, res) {
     if (!result.rows[0]) return res.status(404).json({ error: 'Lead não encontrado.' });
     res.json({ lead: result.rows[0] });
   } catch (err) {
+    console.error('[campaigns.updateLeadStage]', err);
     res.status(500).json({ error: 'Erro ao atualizar lead.' });
   }
 }
 
 async function remove(req, res) {
-  const result = await db.query('DELETE FROM campaigns WHERE id=$1 AND user_id=$2 RETURNING id', [req.params.id, req.user.sub]);
-  if (!result.rows[0]) return res.status(404).json({ error: 'Campanha não encontrada.' });
-  res.status(204).send();
+  try {
+    const result = await db.query('DELETE FROM campaigns WHERE id=$1 AND user_id=$2 RETURNING id', [req.params.id, req.user.sub]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'Campanha não encontrada.' });
+    res.status(204).send();
+  } catch (err) {
+    console.error('[campaigns.remove]', err);
+    res.status(500).json({ error: 'Erro ao excluir campanha.' });
+  }
 }
 
 module.exports = { list, create, getOne, update, run, updateLeadStage, remove };
