@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: maquinadeleads-homolog
+  cancel-in-progress: true
+
 jobs:
   deploy:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
@@ -27,28 +31,41 @@ jobs:
             echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Deploy backend to homologation
+      - name: Validate deploy hooks
+        env:
+          BACKEND_HOOK: ${{ secrets.RENDER_HOMOLOG_BACKEND_DEPLOY_HOOK }}
+          FRONTEND_HOOK: ${{ secrets.RENDER_HOMOLOG_FRONTEND_DEPLOY_HOOK }}
+        shell: bash
+        run: |
+          test -n "$BACKEND_HOOK" || { echo "::error::RENDER_HOMOLOG_BACKEND_DEPLOY_HOOK is not configured"; exit 1; }
+          test -n "$FRONTEND_HOOK" || { echo "::error::RENDER_HOMOLOG_FRONTEND_DEPLOY_HOOK is not configured"; exit 1; }
+
+      - name: Deploy backend to Render homologation
         env:
           HOOK: ${{ secrets.RENDER_HOMOLOG_BACKEND_DEPLOY_HOOK }}
           SHA: ${{ steps.commit.outputs.sha }}
         shell: bash
         run: |
-          if [ -z "$HOOK" ]; then
-            echo "::notice::RENDER_HOMOLOG_BACKEND_DEPLOY_HOOK not configured; backend deploy skipped."
-            exit 0
-          fi
           SEP='?'; [[ "$HOOK" == *'?'* ]] && SEP='&'
-          curl --fail --show-error --silent --request POST "${HOOK}${SEP}ref=${SHA}"
+          curl --fail --show-error --silent --retry 3 --retry-delay 5 --request POST "${HOOK}${SEP}ref=${SHA}"
+          echo
+          echo "Backend deploy requested for ${SHA}"
 
-      - name: Deploy frontend to homologation
+      - name: Deploy frontend to Render homologation
         env:
           HOOK: ${{ secrets.RENDER_HOMOLOG_FRONTEND_DEPLOY_HOOK }}
           SHA: ${{ steps.commit.outputs.sha }}
         shell: bash
         run: |
-          if [ -z "$HOOK" ]; then
-            echo "::notice::RENDER_HOMOLOG_FRONTEND_DEPLOY_HOOK not configured; frontend deploy skipped."
-            exit 0
-          fi
           SEP='?'; [[ "$HOOK" == *'?'* ]] && SEP='&'
-          curl --fail --show-error --silent --request POST "${HOOK}${SEP}ref=${SHA}"
+          curl --fail --show-error --silent --retry 3 --retry-delay 5 --request POST "${HOOK}${SEP}ref=${SHA}"
+          echo
+          echo "Frontend deploy requested for ${SHA}"
+
+      - name: Homologation summary
+        shell: bash
+        run: |
+          echo "### Máquina de Leads · Homologação" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: \`${{ steps.commit.outputs.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Backend: deploy solicitado à Render" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Frontend: deploy solicitado à Render" >> "$GITHUB_STEP_SUMMARY"
