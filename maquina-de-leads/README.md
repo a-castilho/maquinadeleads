@@ -1,4 +1,4 @@
-# Máquina de Leads
+# Máquina de Leads (Code Nome - Equipe de Vendas)
 
 Plataforma de prospecção autônoma orientada a **campanhas**. O fluxo principal não depende de n8n.
 
