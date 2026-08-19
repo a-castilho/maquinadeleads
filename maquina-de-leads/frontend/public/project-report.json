@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "project": "Máquina de Leads",
-  "generated_at": "2026-08-19T17:27:00.222485+00:00",
+  "generated_at": "2026-08-19T23:10:55.034324+00:00",
   "privacy": {
     "mode": "sanitized_allowlist",
     "notice": "Relatório gerado apenas de documentos permitidos. Padrões de credenciais e segredos são omitidos antes da publicação."
@@ -22,11 +22,25 @@
       "content": "# Relatórios do Projeto\n\nPadrão organizacional para apresentar documentação de homologação dentro do produto sem expor dados sensíveis.\n\n[conteúdo sensível omitido]\n\nO relatório deve facilitar revisão, comparação entre planejado e entregue, cópia de contexto para conversas e registro de novas ideias."
     },
     {
+      "id": "docs-issues-issue-3",
+      "category": "Issues",
+      "title": "Issue #3 — Instagram Automático: conteúdo, narração, prévia e publicação",
+      "source": "docs/issues/issue-3.md",
+      "content": "# Issue #3 — Instagram Automático: conteúdo, narração, prévia e publicação\n\n> Documento gerado automaticamente. Edite a issue; este arquivo será sincronizado.\n\n## Metadados\n\n- **Status:** open\n- **Autor:** @acastilho\n- **Responsáveis:** —\n- **Labels:** —\n- **Atualizada em:** 2026-08-19T23:10:35Z\n- **Fonte:** https://github.com/a-castilho/maquinadeleads/issues/3\n\n## Planejado / descrição\n\n## Objetivo\nAdicionar à Máquina de Leads um fluxo de Instagram Automático baseado no cadastro da empresa.\n\n## Escopo MVP\n- cadastro do perfil da empresa;\n- geração de headline, legenda, CTA, hashtags e roteiro;\n- prompt visual 9:16;\n- narração pt-BR no navegador;\n- prévia de Reel;\n- aprovação e agendamento;\n- publicação condicionada à integração oficial do Instagram;\n- documentação funcional e técnica.\n\n## Segurança\nNenhum token deve ser exposto no frontend e a aplicação não pode informar publicação concluída quando a integração oficial ainda não estiver configurada.\n\n## Documentação\n`docs/instagram-automatico.md`\n\n## Branch de rollback\n`backup/pre-instagram-automatico-20260819`\n\n## Regra de revisão\n\nA PR deve comparar **planejado x implementado x tela/resultado real** e registrar evidência."
+    },
+    {
       "id": "docs-issues-issue-2",
       "category": "Issues",
       "title": "Issue #2 — homologação: validar central de Relatórios na tela",
       "source": "docs/issues/issue-2.md",
       "content": "# Issue #2 — homologação: validar central de Relatórios na tela\n\n> Documento gerado automaticamente. Edite a issue; este arquivo será sincronizado.\n\n## Metadados\n\n- **Status:** open\n- **Autor:** @acastilho\n- **Responsáveis:** —\n- **Labels:** —\n- **Atualizada em:** 2026-08-19T17:26:40Z\n- **Fonte:** https://github.com/a-castilho/maquinadeleads/issues/2\n\n## Planejado / descrição\n\n## Objetivo\nValidar em homologação a nova área **Relatórios** da Máquina de Leads e registrar evidência da interface entregue.\n\n## Implementado\n- [x] botão Relatórios no painel\n- [x] rota `/relatorios` dentro de `PrivateRoute`\n- [x] leitura por categorias e busca\n- [x] Copiar para conversa\n- [x] atalho Nova ideia\n- [x] projeção gerada automaticamente por allowlist\n- [x] sanitização de padrões sensíveis\n\n## Segurança\n[conteúdo sensível omitido]\n\n## Critérios pendentes\n- [ ] abrir `/relatorios` na homologação real\n- [ ] registrar screenshot/evidência visual desktop\n- [ ] registrar screenshot/evidência visual mobile\n- [ ] testar busca e categorias\n- [ ] testar Copiar para conversa\n- [ ] comparar planejado x implementado x tela real\n\nReferência: `docs/ideas/RELATORIOS_HOMOLOGACAO_VALIDACAO.md`.\n\n## Regra de revisão\n\nA PR deve comparar **planejado x implementado x tela/resultado real** e registrar evidência."
+    },
+    {
+      "id": "docs-reviews-pr-4",
+      "category": "Revisões",
+      "title": "Revisão PR #4 — feat: Instagram Automático",
+      "source": "docs/reviews/pr-4.md",
+      "content": "# Revisão PR #4 — feat: Instagram Automático\n\n## Metadados\n\n- **Estado:** Aberta\n- **Autor:** @acastilho\n- **Base/Head:** `main` ← `feature/instagram-automatico`\n- **Fonte:** https://github.com/a-castilho/maquinadeleads/pull/4\n\n## Sinais automáticos\n\n- **Issue detectada:** SIM\n- **Mudança de UI provável:** SIM\n- **Evidência visual detectada:** NÃO\n- **Arquivos:** 10\n\n> UI provável sem evidência deve ser justificada ou receber screenshot/registro antes do merge.\n\n## Arquivos alterados\n\n- `docs/instagram-automatico.md` (+72/-0)\n- `maquina-de-leads/backend/.env.example` (+7/-0)\n- `maquina-de-leads/backend/src/controllers/instagramAutomationController.js` (+74/-0)\n- `maquina-de-leads/backend/src/routes/instagramAutomationRoutes.js` (+10/-0)\n- `maquina-de-leads/backend/src/server.js` (+2/-0)\n- `maquina-de-leads/backend/src/services/instagramAutomationService.js` (+84/-0)\n- `maquina-de-leads/frontend/src/App.jsx` (+3/-1)\n- `maquina-de-leads/frontend/src/instagram-automation.css` (+1/-0)\n- `maquina-de-leads/frontend/src/pages/Dashboard.jsx` (+2/-1)\n- `maquina-de-leads/frontend/src/pages/InstagramAutomation.jsx` (+330/-0)\n\n## Descrição/evidências da PR\n\nImplementa o MVP do Instagram Automático com cadastro da empresa, geração de conteúdo, roteiro de narração, prévia 9:16, TTS no navegador, agendamento e gate seguro para publicação oficial.\n\nPrincipais pontos:\n- nova página protegida `/instagram-automatico`;\n- acesso pelo dashboard;\n- endpoints autenticados `/api/instagram-automation/*`;\n- detecção de credenciais sem exposição de tokens;\n- documentação em `docs/instagram-automatico.md`;\n- rollback preservado em `backup/pre-instagram-automatico-20260819`.\n\nCloses #3\n\n## Comparação\n\nConferir issue → diff → resultado real/tela → divergências."
     },
     {
       "id": "docs-reviews-pr-1",
