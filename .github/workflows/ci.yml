@@ -43,6 +43,9 @@ jobs:
       - run: node --check src/controllers/campaignsController.js
       - run: node --check src/services/campaignService.js
       - run: node --check src/routes/campaignRoutes.js
+      - run: node --check src/controllers/instagramAutomationController.js
+      - run: node --check src/services/instagramAutomationService.js
+      - run: node --check src/routes/instagramAutomationRoutes.js
 
   frontend:
     runs-on: ubuntu-latest

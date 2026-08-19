@@ -66,6 +66,7 @@ export default function Dashboard() {
             <strong>{user?.name || 'Usuário'}</strong>
             <span>Conta ativa</span>
           </div>
+          <Link className="ghost-button" to="/instagram-automatico">Instagram Automático</Link>
           <Link className="ghost-button" to="/relatorios">Relatórios</Link>
           <button className="ghost-button" onClick={logout}>Sair</button>
         </div>

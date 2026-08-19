@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const authRoutes = require('./routes/authRoutes');
 const nichesRoutes = require('./routes/nichesRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
+const instagramAutomationRoutes = require('./routes/instagramAutomationRoutes');
 const { requireAuth } = require('./middleware/auth');
 
 const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DATABASE_URL'];
@@ -31,6 +32,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok', service: 'maquina-de-l
 app.use('/api/auth', authRoutes);
 app.use('/api/campaigns', requireAuth, campaignRoutes);
 app.use('/api/niches', requireAuth, nichesRoutes);
+app.use('/api/instagram-automation', requireAuth, instagramAutomationRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));
 app.use((err, req, res, next) => {
