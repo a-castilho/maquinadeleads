@@ -1,4 +1,4 @@
-# Máquina de Leads
+# Máquina de Leads (Code Nome - Equipe de Vendas)
 
 Plataforma de prospecção autônoma orientada a campanhas, com descoberta, qualificação, deduplicação e acompanhamento de leads.
 
