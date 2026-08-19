@@ -66,6 +66,7 @@ export default function Dashboard() {
             <strong>{user?.name || 'Usuário'}</strong>
             <span>Conta ativa</span>
           </div>
+          <Link className="ghost-button" to="/relatorios">Relatórios</Link>
           <button className="ghost-button" onClick={logout}>Sair</button>
         </div>
       </header>
@@ -86,69 +87,29 @@ export default function Dashboard() {
       </section>
 
       <section className="metric-grid dashboard-metrics">
-        <article className="metric-card">
-          <span>Campanhas ativas</span>
-          <strong>{activeCampaigns}</strong>
-          <small>{campaigns.length} no total</small>
-        </article>
-        <article className="metric-card">
-          <span>Leads encontrados</span>
-          <strong>{totals.leads}</strong>
-          <small>{totals.contacted} contatados</small>
-        </article>
-        <article className="metric-card">
-          <span>Interessados</span>
-          <strong>{totals.interested}</strong>
-          <small>no funil atual</small>
-        </article>
-        <article className="metric-card">
-          <span>Conversões</span>
-          <strong>{totals.converted}</strong>
-          <small>{conversionRate}% de conversão</small>
-        </article>
+        <article className="metric-card"><span>Campanhas ativas</span><strong>{activeCampaigns}</strong><small>{campaigns.length} no total</small></article>
+        <article className="metric-card"><span>Leads encontrados</span><strong>{totals.leads}</strong><small>{totals.contacted} contatados</small></article>
+        <article className="metric-card"><span>Interessados</span><strong>{totals.interested}</strong><small>no funil atual</small></article>
+        <article className="metric-card"><span>Conversões</span><strong>{totals.converted}</strong><small>{conversionRate}% de conversão</small></article>
       </section>
 
       <section className="dashboard-grid">
         <article className="card campaign-create-card">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">NOVA CAMPANHA</span>
-              <h2>Comece pela oportunidade</h2>
-            </div>
-            <span className="step-pill">Etapa 1 de 3</span>
-          </div>
+          <div className="section-heading"><div><span className="eyebrow">NOVA CAMPANHA</span><h2>Comece pela oportunidade</h2></div><span className="step-pill">Etapa 1 de 3</span></div>
           <p className="section-copy">Preencha as informações abaixo. A estratégia inicial e as palavras-chave serão montadas automaticamente e poderão ser revisadas antes da execução.</p>
-
           {error && <div className="error-box">{error}</div>}
-
           <form className="campaign-form dashboard-form" onSubmit={handleCreate}>
-            <div className="field-group">
-              <label>Nome da campanha</label>
-              <input placeholder="Ex.: Software sob medida para indústrias" value={form.name} onChange={e => setForm({...form, name:e.target.value})} required />
-            </div>
-            <div className="field-group">
-              <label>Nicho</label>
-              <input placeholder="Ex.: indústrias, clínicas, imobiliárias" value={form.niche} onChange={e => setForm({...form, niche:e.target.value})} required />
-            </div>
-            <div className="field-group">
-              <label>Cidade ou região</label>
-              <input placeholder="Ex.: São Paulo" value={form.location} onChange={e => setForm({...form, location:e.target.value})} />
-            </div>
-            <div className="field-group">
-              <label>Produto ou serviço</label>
-              <input placeholder="Ex.: desenvolvimento de software" value={form.offer} onChange={e => setForm({...form, offer:e.target.value})} />
-            </div>
-            <div className="field-group field-wide">
-              <label>Objetivo comercial</label>
-              <textarea rows="5" placeholder="Descreva o perfil de cliente ideal, sua oferta e o resultado que deseja alcançar." value={form.objective} onChange={e => setForm({...form, objective:e.target.value})} />
-            </div>
+            <div className="field-group"><label>Nome da campanha</label><input placeholder="Ex.: Software sob medida para indústrias" value={form.name} onChange={e => setForm({...form, name:e.target.value})} required /></div>
+            <div className="field-group"><label>Nicho</label><input placeholder="Ex.: indústrias, clínicas, imobiliárias" value={form.niche} onChange={e => setForm({...form, niche:e.target.value})} required /></div>
+            <div className="field-group"><label>Cidade ou região</label><input placeholder="Ex.: São Paulo" value={form.location} onChange={e => setForm({...form, location:e.target.value})} /></div>
+            <div className="field-group"><label>Produto ou serviço</label><input placeholder="Ex.: desenvolvimento de software" value={form.offer} onChange={e => setForm({...form, offer:e.target.value})} /></div>
+            <div className="field-group field-wide"><label>Objetivo comercial</label><textarea rows="5" placeholder="Descreva o perfil de cliente ideal, sua oferta e o resultado que deseja alcançar." value={form.objective} onChange={e => setForm({...form, objective:e.target.value})} /></div>
             <button className="primary-action field-wide" disabled={saving}>{saving ? 'Criando campanha...' : 'Criar e gerar estratégia'}</button>
           </form>
         </article>
 
         <aside className="card quick-guide-card">
-          <span className="eyebrow">COMO FUNCIONA</span>
-          <h2>Fluxo simples, com controle.</h2>
+          <span className="eyebrow">COMO FUNCIONA</span><h2>Fluxo simples, com controle.</h2>
           <div className="guide-step"><span>1</span><div><strong>Defina a campanha</strong><p>Informe nicho, região, oferta e objetivo.</p></div></div>
           <div className="guide-step"><span>2</span><div><strong>Revise a estratégia</strong><p>Ajuste palavras-chave e mensagem antes de executar.</p></div></div>
           <div className="guide-step"><span>3</span><div><strong>Execute e acompanhe</strong><p>Os leads entram no funil e ficam organizados por etapa.</p></div></div>
@@ -156,43 +117,8 @@ export default function Dashboard() {
       </section>
 
       <section className="campaigns-section">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">CAMPANHAS</span>
-            <h2>Operações em andamento</h2>
-          </div>
-          <span className="count-pill">{campaigns.length}</span>
-        </div>
-
-        {loading ? (
-          <div className="empty-state">Carregando campanhas...</div>
-        ) : campaigns.length === 0 ? (
-          <div className="empty-state">
-            <strong>Nenhuma campanha criada ainda.</strong>
-            <span>Crie a primeira campanha acima para começar a prospecção.</span>
-          </div>
-        ) : (
-          <div className="campaign-grid">
-            {campaigns.map(c => (
-              <Link to={`/campanhas/${c.id}`} key={c.id} className="campaign-card">
-                <div className="campaign-card-top">
-                  <div>
-                    <span className="campaign-label">{c.niche}</span>
-                    <h3>{c.name}</h3>
-                  </div>
-                  <span className={`badge badge-${c.status}`}>{c.status}</span>
-                </div>
-                <p>{c.location || 'Região não definida'}{c.offer ? ` • ${c.offer}` : ''}</p>
-                <div className="campaign-stat-grid">
-                  <span><strong>{c.leads_total || 0}</strong> leads</span>
-                  <span><strong>{c.interessados || 0}</strong> interessados</span>
-                  <span><strong>{c.convertidos || 0}</strong> conversões</span>
-                </div>
-                <span className="campaign-open">Abrir campanha →</span>
-              </Link>
-            ))}
-          </div>
-        )}
+        <div className="section-heading"><div><span className="eyebrow">CAMPANHAS</span><h2>Operações em andamento</h2></div><span className="count-pill">{campaigns.length}</span></div>
+        {loading ? <div className="empty-state">Carregando campanhas...</div> : campaigns.length === 0 ? <div className="empty-state"><strong>Nenhuma campanha criada ainda.</strong><span>Crie a primeira campanha acima para começar a prospecção.</span></div> : <div className="campaign-grid">{campaigns.map(c => <Link to={`/campanhas/${c.id}`} key={c.id} className="campaign-card"><div className="campaign-card-top"><div><span className="campaign-label">{c.niche}</span><h3>{c.name}</h3></div><span className={`badge badge-${c.status}`}>{c.status}</span></div><p>{c.location || 'Região não definida'}{c.offer ? ` • ${c.offer}` : ''}</p><div className="campaign-stat-grid"><span><strong>{c.leads_total || 0}</strong> leads</span><span><strong>{c.interessados || 0}</strong> interessados</span><span><strong>{c.convertidos || 0}</strong> conversões</span></div><span className="campaign-open">Abrir campanha →</span></Link>)}</div>}
       </section>
     </div>
   );
