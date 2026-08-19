@@ -1,0 +1,465 @@
+:root {
+  --bg: #f4f2f1;
+  --card: #ffffff;
+  --border: #d7d3d0;
+  --text: #2d2926;
+  --muted: #6f6a66;
+  --accent: #e95420;
+  --accent-hover: #d64816;
+  --danger: #c7162b;
+  --success: #0e8420;
+  --ubuntu-aubergine: #300a24;
+  --ubuntu-aubergine-2: #5e2750;
+  --ubuntu-orange: #e95420;
+  --ubuntu-panel: #1f1f1f;
+  --ubuntu-surface: #f7f6f5;
+  --ubuntu-shadow: 0 12px 30px rgba(48, 10, 36, 0.14);
+  font-family: Ubuntu, Cantarell, "Noto Sans", "Segoe UI", system-ui, sans-serif;
+}
+
+html { background: var(--ubuntu-aubergine); }
+body { background: var(--ubuntu-aubergine); color: var(--text); }
+a { color: var(--accent); }
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  background: var(--ubuntu-orange);
+  color: #fff;
+  border-radius: 8px;
+  box-shadow: none;
+}
+button:hover { background: var(--accent-hover); }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(233, 84, 32, 0.25);
+  outline-offset: 2px;
+}
+
+.ubuntu-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(119, 33, 111, 0.42), transparent 27rem),
+    linear-gradient(145deg, #2c001e 0%, #3d1231 48%, #250017 100%);
+}
+
+.ubuntu-panel {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 40;
+  height: 36px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  padding: 0 12px;
+  color: #f5f5f5;
+  background: rgba(28, 28, 28, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  font-size: 12px;
+}
+
+.ubuntu-panel-brand,
+.ubuntu-panel-session {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ubuntu-panel-session { justify-content: flex-end; }
+.ubuntu-panel-brand strong,
+.ubuntu-user-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ubuntu-panel-mark {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--ubuntu-orange);
+  box-shadow:
+    0 0 0 2px rgba(233, 84, 32, 0.2),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.16);
+}
+
+.ubuntu-panel-title {
+  color: #dedede;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+
+.ubuntu-online {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #55c74d;
+  box-shadow: 0 0 0 2px rgba(85, 199, 77, .14);
+  flex: 0 0 auto;
+}
+
+.ubuntu-session-button {
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, .15);
+  background: rgba(255, 255, 255, .06);
+  color: #efefef;
+  font-size: 11px;
+}
+.ubuntu-session-button:hover { background: rgba(255, 255, 255, .12); }
+
+.ubuntu-dock {
+  position: fixed;
+  z-index: 35;
+  left: 12px;
+  top: 54px;
+  width: 58px;
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, .13);
+  border-radius: 14px;
+  background: rgba(30, 20, 28, .76);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, .25);
+}
+
+.ubuntu-launcher {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  text-decoration: none;
+  background: linear-gradient(145deg, #7b395f, #52203f);
+  border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .12);
+  transition: transform .15s ease, background .15s ease;
+}
+.ubuntu-launcher:hover { transform: translateY(-1px); background: linear-gradient(145deg, #8b416b, #63274b); }
+.ubuntu-launcher.active::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  width: 4px;
+  height: 18px;
+  border-radius: 0 4px 4px 0;
+  background: var(--ubuntu-orange);
+}
+.ubuntu-launcher-logo {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -.04em;
+}
+.ubuntu-dock-separator {
+  width: 34px;
+  height: 1px;
+  background: rgba(255, 255, 255, .13);
+}
+.ubuntu-dock-status {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .06);
+}
+
+.ubuntu-workspace {
+  min-height: 100vh;
+  padding: 52px 18px 28px 82px;
+}
+
+.ubuntu-workspace > .page,
+.ubuntu-workspace > .dashboard-shell {
+  background: rgba(247, 246, 245, .985);
+  border: 1px solid rgba(255, 255, 255, .42);
+  box-shadow: var(--ubuntu-shadow);
+}
+
+.page {
+  max-width: 1120px;
+  min-height: calc(100vh - 84px);
+  padding: 28px;
+  border-radius: 12px;
+}
+
+.dashboard-shell {
+  max-width: 1240px;
+  min-height: calc(100vh - 84px);
+  padding: 30px 30px 54px;
+  border-radius: 12px;
+}
+
+.dashboard-header {
+  padding: 2px 2px 20px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--border);
+}
+.dashboard-header h1 {
+  color: #2f2926;
+  font-size: clamp(27px, 3.6vw, 40px);
+}
+.dashboard-header p { color: var(--muted); }
+.ubuntu-shell .dashboard-user { display: none; }
+
+.eyebrow,
+.hero-kicker,
+.campaign-label {
+  color: var(--ubuntu-orange);
+  letter-spacing: .12em;
+}
+
+.dashboard-hero {
+  margin-top: 20px;
+  border: 0;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(233, 84, 32, .26), transparent 30%),
+    linear-gradient(125deg, #300a24, #5e2750 72%, #6b2d5a);
+  box-shadow: 0 12px 28px rgba(48, 10, 36, .18);
+}
+.dashboard-hero h2,
+.dashboard-hero p,
+.dashboard-hero .hero-kicker { color: #fff; }
+.dashboard-hero p { color: rgba(255, 255, 255, .78); }
+.dashboard-hero .hero-kicker { color: #ffb49b; }
+.hero-status {
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid rgba(255, 255, 255, .13);
+}
+.hero-status strong { color: #fff; }
+.hero-status span:last-child { color: rgba(255, 255, 255, .72); }
+
+.metric-card,
+.card,
+.campaign-card,
+.niche-card,
+.auth-card {
+  background: #fff;
+  border-color: var(--border);
+  box-shadow: 0 2px 7px rgba(48, 10, 36, .055);
+}
+.metric-card { border-radius: 10px; min-height: 122px; }
+.metric-card > span,
+.metric-card small { color: var(--muted); }
+.metric-card strong { color: var(--ubuntu-aubergine); }
+
+.campaign-create-card,
+.quick-guide-card { border-radius: 10px; }
+.step-pill,
+.count-pill,
+.stat-pill,
+.chip {
+  background: #f1efed;
+  border-color: #d8d4d1;
+  color: #665f5b;
+}
+
+.field-group label,
+label { color: #5f5955; }
+input,
+select,
+textarea,
+.dashboard-form input,
+.dashboard-form textarea {
+  background: #fbfaf9;
+  color: #2d2926;
+  border-color: #cfcac6;
+  border-radius: 7px;
+}
+input::placeholder,
+textarea::placeholder { color: #99928d; }
+.dashboard-form input:focus,
+.dashboard-form textarea:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--ubuntu-orange);
+  box-shadow: 0 0 0 3px rgba(233, 84, 32, .13);
+}
+.primary-action {
+  border-radius: 8px;
+  background: var(--ubuntu-orange);
+}
+.primary-action:hover { background: var(--accent-hover); }
+
+.guide-step { border-top-color: #e5e1de; }
+.guide-step > span {
+  background: rgba(233, 84, 32, .10);
+  color: var(--ubuntu-orange);
+  border-radius: 50%;
+}
+
+.campaign-card { border-radius: 10px; }
+.campaign-card:hover,
+.niche-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(233, 84, 32, .58);
+  background: #fffaf8;
+}
+.campaign-card h3,
+.campaign-stat-grid strong { color: #342d29; }
+.campaign-stat-grid span {
+  background: #faf8f7;
+  border-color: #e0dbd8;
+  border-radius: 7px;
+}
+.campaign-open,
+.back-link,
+.link-btn,
+.leads-table a,
+.switch-link a { color: var(--ubuntu-orange); }
+
+.empty-state {
+  background: #fbfaf9;
+  border-color: #cec8c4;
+  border-radius: 10px;
+}
+.empty-state strong { color: #332c28; }
+
+.topbar {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.topbar h1 { color: #332c28; font-size: 24px; }
+.topbar-user { color: var(--muted); }
+
+.tabs {
+  gap: 6px;
+  padding: 8px 0 0;
+  border-bottom-color: #d8d4d0;
+  overflow-x: auto;
+}
+.tab {
+  color: #6e6762;
+  border-radius: 7px 7px 0 0;
+}
+.tab:hover { background: #eeeae7; color: #342d29; }
+.tab.active {
+  color: var(--ubuntu-aubergine);
+  border-bottom-color: var(--ubuntu-orange);
+  background: #f7f4f2;
+}
+
+.badge { border-radius: 999px; }
+.badge-draft,
+.badge-ready { background: rgba(94, 39, 80, .11); color: #5e2750; }
+.badge-running,
+.badge-active,
+.badge-completed { background: rgba(14, 132, 32, .11); color: #08701a; }
+.badge-paused { background: rgba(233, 84, 32, .11); color: #b83d12; }
+.badge-error { background: rgba(199, 22, 43, .10); color: #b01227; }
+.badge-inactive { background: #ece9e7; color: #6c6561; }
+
+.agent-box,
+.template-list li,
+.funnel-summary span {
+  background: #fbfaf9;
+  border-color: #ddd8d5;
+}
+.funnel-summary strong { color: var(--ubuntu-aubergine); }
+
+.leads-table th {
+  color: #5e5753;
+  background: #f2efed;
+  font-weight: 700;
+}
+.leads-table th,
+.leads-table td { border-bottom-color: #ded9d6; }
+.leads-table tbody tr:hover { background: #fff8f4; }
+
+.error-box {
+  background: #fff0f1;
+  color: #a31024;
+  border-color: #e6bfc4;
+  border-left: 4px solid var(--danger);
+  border-radius: 7px;
+}
+
+.auth-page {
+  min-height: 100vh;
+  padding: 28px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(233, 84, 32, .24), transparent 24rem),
+    linear-gradient(140deg, #2c001e, #5e2750);
+}
+.auth-card {
+  width: min(380px, 100%);
+  padding: 32px;
+  border: 0;
+  border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .32);
+}
+.auth-card::before {
+  content: "Máquina de Leads";
+  display: block;
+  color: var(--ubuntu-orange);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.auth-card h1 { color: var(--ubuntu-aubergine); font-size: 23px; }
+.subtitle,
+.switch-link { color: var(--muted); }
+
+.loading-screen { color: #eee; background: var(--ubuntu-aubergine); }
+
+@media (max-width: 760px) {
+  .ubuntu-panel {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .ubuntu-panel-title { display: none; }
+  .ubuntu-user-name { max-width: 90px; }
+  .ubuntu-dock {
+    left: 50%;
+    top: auto;
+    bottom: 10px;
+    width: auto;
+    min-height: 0;
+    flex-direction: row;
+    transform: translateX(-50%);
+  }
+  .ubuntu-dock-separator { width: 1px; height: 30px; }
+  .ubuntu-launcher.active::before {
+    left: 12px;
+    top: auto;
+    bottom: -9px;
+    width: 18px;
+    height: 4px;
+    border-radius: 4px 4px 0 0;
+  }
+  .ubuntu-workspace { padding: 48px 10px 78px; }
+  .page,
+  .dashboard-shell {
+    min-height: calc(100vh - 136px);
+    border-radius: 10px;
+  }
+  .page { padding: 20px 16px; }
+  .dashboard-shell { padding: 22px 14px 40px; }
+}
+
+@media (max-width: 520px) {
+  .ubuntu-panel-brand strong { max-width: 125px; }
+  .ubuntu-panel-session { gap: 6px; }
+  .ubuntu-session-button { padding: 4px 7px; }
+  .dashboard-metrics { grid-template-columns: 1fr 1fr; }
+  .dashboard-hero { border-radius: 10px; }
+  .metric-card { border-radius: 8px; }
+}
