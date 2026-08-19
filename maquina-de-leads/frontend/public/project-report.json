@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "project": "Máquina de Leads",
+  "generated_at": "2026-08-19T17:24:00Z",
+  "privacy": {"mode":"sanitized_allowlist","notice":"Relatório gerado apenas de documentos permitidos. Padrões de credenciais e segredos são omitidos antes da publicação."},
+  "documents": [
+    {"id":"governanca","category":"Governança","title":"Rastreabilidade de desenvolvimento","source":"docs/DEVELOPMENT_GOVERNANCE.md","content":"# Rastreabilidade de desenvolvimento\n\nA revisão deve comparar o que foi pedido, o que foi implementado e o resultado real na interface ou operação."},
+    {"id":"relatorios","category":"Governança","title":"Relatórios do Projeto","source":"docs/PRODUCT_REPORTS.md","content":"# Relatórios do Projeto\n\nA homologação exibe apenas documentação permitida e sanitizada. Arquivos de configuração, credenciais e logs brutos não fazem parte da projeção."},
+    {"id":"pr-1","category":"Revisões","title":"PR #1 — motor nativo para substituir n8n","source":"docs/reviews/pr-1.md","content":"# PR #1 — motor nativo para substituir n8n\n\nMudança de UI provável: SIM. Evidência visual no baseline: NÃO. O teste end-to-end real e a validação da interface devem ser concluídos antes de tratar a entrega como validada na tela."}
+  ]
+}
