@@ -2,7 +2,7 @@
 
 ## Metadados
 
-- **Estado:** Aberta
+- **Estado:** Merged
 - **Autor:** @acastilho
 - **Base/Head:** `main` ← `feature/instagram-automatico`
 - **Fonte:** https://github.com/a-castilho/maquinadeleads/pull/4
