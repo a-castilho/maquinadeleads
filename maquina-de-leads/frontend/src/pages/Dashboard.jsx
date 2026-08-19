@@ -56,7 +56,7 @@ export default function Dashboard() {
     <div className="dashboard-shell">
       <header className="dashboard-header">
         <div>
-          <span className="eyebrow">MÁQUINA DE LEADS</span>
+          <span className="eyebrow">MÁQUINA DE LEADS (CODE NOME - EQUIPE DE VENDAS)</span>
           <h1>Seu painel de prospecção</h1>
           <p>Crie campanhas, acompanhe leads e evolua oportunidades em um só lugar.</p>
         </div>
