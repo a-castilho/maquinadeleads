@@ -27,7 +27,7 @@ export default function Login() {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <h1>Máquina de Leads</h1>
+        <h1>Máquina de Leads (Code Nome - Equipe de Vendas)</h1>
         <p className="subtitle">Entre na sua conta</p>
         {error && <div className="error-box">{error}</div>}
         <label>Email</label>
