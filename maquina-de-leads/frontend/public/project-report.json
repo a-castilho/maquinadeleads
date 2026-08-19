@@ -1,11 +1,46 @@
 {
   "schema_version": 1,
   "project": "Máquina de Leads",
-  "generated_at": "2026-08-19T17:24:00Z",
-  "privacy": {"mode":"sanitized_allowlist","notice":"Relatório gerado apenas de documentos permitidos. Padrões de credenciais e segredos são omitidos antes da publicação."},
+  "generated_at": "2026-08-19T17:25:54.927030+00:00",
+  "privacy": {
+    "mode": "sanitized_allowlist",
+    "notice": "Relatório gerado apenas de documentos permitidos. Padrões de credenciais e segredos são omitidos antes da publicação."
+  },
   "documents": [
-    {"id":"governanca","category":"Governança","title":"Rastreabilidade de desenvolvimento","source":"docs/DEVELOPMENT_GOVERNANCE.md","content":"# Rastreabilidade de desenvolvimento\n\nA revisão deve comparar o que foi pedido, o que foi implementado e o resultado real na interface ou operação."},
-    {"id":"relatorios","category":"Governança","title":"Relatórios do Projeto","source":"docs/PRODUCT_REPORTS.md","content":"# Relatórios do Projeto\n\nA homologação exibe apenas documentação permitida e sanitizada. Arquivos de configuração, credenciais e logs brutos não fazem parte da projeção."},
-    {"id":"pr-1","category":"Revisões","title":"PR #1 — motor nativo para substituir n8n","source":"docs/reviews/pr-1.md","content":"# PR #1 — motor nativo para substituir n8n\n\nMudança de UI provável: SIM. Evidência visual no baseline: NÃO. O teste end-to-end real e a validação da interface devem ser concluídos antes de tratar a entrega como validada na tela."}
+    {
+      "id": "docs-DEVELOPMENT_GOVERNANCE",
+      "category": "Governança",
+      "title": "Regra de rastreabilidade, revisão e documentação",
+      "source": "docs/DEVELOPMENT_GOVERNANCE.md",
+      "content": "# Regra de rastreabilidade, revisão e documentação\n\nEsta regra é obrigatória para mudanças funcionais, correções, novas ideias e alterações visuais do projeto.\n\n## Fonte de verdade\n\n- **Issue = intenção:** problema, objetivo, comportamento atual, esperado e critérios de aceite.\n- **PR = execução:** o que foi implementado, arquivos alterados, testes e evidência.\n- **Relatório = evidência:** `docs/issues/` e `docs/reviews/` são gerados automaticamente e ficam versionados.\n\n## Cada issue\n\nToda issue deve registrar contexto/problema, objetivo, estado atual, resultado esperado, critérios de aceite, impacto visual quando existir e riscos/dependências. O workflow `issue-documentation.yml` gera/atualiza `docs/issues/issue-<numero>.md`.\n\n## Novas ideias\n\nUse o template **Nova ideia**. Registre hipótese, valor esperado, experiência/tela imaginada, como validar, riscos e alternativas antes de assumir implementação.\n\n## Revisão\n\nToda PR deve referenciar uma issue, explicar o que mudou e como validar, registrar testes e, para UI, incluir evidência antes/depois. Divergências entre solicitado e entregue devem ser explícitas.\n\nO workflow `review-documentation.yml` gera `docs/reviews/pr-<numero>.md` com arquivos alterados, sinais automáticos de rastreabilidade e o conteúdo da PR.\n\n## Comparação obrigatória\n\n1. **Planejado:** issue e critérios de aceite.\n2. **Implementado:** diff, arquivos e descrição da PR.\n3. **Real:** tela, rota, fluxo, resposta de API, log, teste ou outra evidência observável.\n4. **Divergências:** registrar antes do merge.\n\n## Definition of Done\n\nSó considerar concluído quando existir rastreabilidade, critérios verificados, testes, comparação do resultado real com o esperado, divergências registradas e documentação atualizada."
+    },
+    {
+      "id": "docs-PRODUCT_REPORTS",
+      "category": "Governança",
+      "title": "Relatórios do Projeto",
+      "source": "docs/PRODUCT_REPORTS.md",
+      "content": "# Relatórios do Projeto\n\nPadrão organizacional para apresentar documentação de homologação dentro do produto sem expor dados sensíveis.\n\n[conteúdo sensível omitido]\n\nO relatório deve facilitar revisão, comparação entre planejado e entregue, cópia de contexto para conversas e registro de novas ideias."
+    },
+    {
+      "id": "docs-reviews-pr-1",
+      "category": "Revisões",
+      "title": "Revisão PR #1 — feat: motor nativo para substituir n8n",
+      "source": "docs/reviews/pr-1.md",
+      "content": "# Revisão PR #1 — feat: motor nativo para substituir n8n\n\n> Baseline criado na adoção da nova regra de revisão.\n\n- **Estado:** aberta / declarada como draft\n- **Fonte:** https://github.com/a-castilho/maquinadeleads/pull/1\n- **Issue relacionada detectada:** NÃO\n- **Mudança de UI provável:** SIM\n- **Evidência visual detectada na descrição:** NÃO\n\n## Entrega declarada\nMotor nativo com fila/auditoria, descoberta e enriquecimento, scoring, funil, Evolution API, ciclo de vida da campanha e dashboard convertido para Campanhas com fluxo em cinco etapas.\n\n## Pendências já declaradas\n- validar contra o PostgreSQL real;\n- validar worker e descoberta real;\n- validar Evolution API/WhatsApp;\n- revisar pausa durante lote de envio;\n- decidir remoção definitiva do legado n8n.\n\n## Lacuna crítica de revisão\nA descrição detalha várias mudanças de produto e frontend, mas não contém evidência visual. Antes do merge, comparar o fluxo real Campanha → Estratégia → Leads → Preparação → Ativação, o funil, métricas e estados de execução com o escopo declarado. A própria PR afirma que o teste end-to-end real ainda é pendente, portanto não deve ser tratada como validada na tela."
+    },
+    {
+      "id": "docs-ideas-RELATORIOS_HOMOLOGACAO_VALIDACAO",
+      "category": "Ideias",
+      "title": "Validação — Central de Relatórios de Homologação",
+      "source": "docs/ideas/RELATORIOS_HOMOLOGACAO_VALIDACAO.md",
+      "content": "# Validação — Central de Relatórios de Homologação\n\n## Estado técnico\n\n- [x] botão **Relatórios** no painel\n- [x] rota `/relatorios` protegida por `PrivateRoute`\n- [x] leitura por categorias e busca\n- [x] botão **Copiar para conversa**\n- [x] atalho **Nova ideia**\n- [x] geração automática a partir de documentação permitida\n- [x] sanitização de padrões sensíveis\n- [ ] evidência visual da tela em homologação\n- [ ] comparação final entre comportamento esperado e tela implantada\n\nOs checks Vercel do commit de implementação estão verdes, mas isso não substitui evidência visual da nova tela."
+    },
+    {
+      "id": "docs-ideas-RELATORIOS_HOMOLOGACAO",
+      "category": "Ideias",
+      "title": "Ideia — Central de Relatórios de Homologação",
+      "source": "docs/ideas/RELATORIOS_HOMOLOGACAO.md",
+      "content": "# Ideia — Central de Relatórios de Homologação\n\nCriar uma área **Relatórios** no produto para leitura de documentação, issues, revisões e ideias, com busca, cópia de contexto para conversas e atalho para novas ideias.\n\n[conteúdo sensível omitido]"
+    }
   ]
 }
