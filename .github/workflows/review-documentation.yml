@@ -1,0 +1,30 @@
+name: Documentar revisões de PR
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review, closed]
+permissions:
+  contents: write
+  pull-requests: read
+concurrency:
+  group: review-documentation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr=context.payload.pull_request, owner=context.repo.owner, repo=context.repo.repo;
+            const path=`docs/reviews/pr-${pr.number}.md`;
+            const files=await github.paginate(github.rest.pulls.listFiles,{owner,repo,pull_number:pr.number,per_page:100});
+            const body=pr.body||'_Sem descrição._';
+            const issue=/(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)?\s*#\d+/i.test(body)||/\/issues\/\d+/i.test(body);
+            const visual=/!\[[^\]]*\]\([^\)]+\)|<img\b|user-attachments|private-user-images|\.png\b|\.jpe?g\b|\.webp\b/i.test(body);
+            const ui=files.some(f=>/(^|\/)(frontend|src|app|pages|components|ui|views|templates)(\/|$)|\.(tsx|jsx|vue|svelte|css|scss|html)$/i.test(f.filename));
+            const list=files.length?files.map(f=>`- \`${f.filename}\` (+${f.additions}/-${f.deletions})`).join('\n'):'_Nenhum arquivo listado._';
+            const state=pr.merged?'Merged':(pr.state==='closed'?'Fechada sem merge':(pr.draft?'Draft':'Aberta'));
+            const content=`# Revisão PR #${pr.number} — ${pr.title}\n\n## Metadados\n\n- **Estado:** ${state}\n- **Autor:** @${pr.user.login}\n- **Base/Head:** \`${pr.base.ref}\` ← \`${pr.head.ref}\`\n- **Fonte:** ${pr.html_url}\n\n## Sinais automáticos\n\n- **Issue detectada:** ${issue?'SIM':'NÃO'}\n- **Mudança de UI provável:** ${ui?'SIM':'NÃO'}\n- **Evidência visual detectada:** ${visual?'SIM':'NÃO'}\n- **Arquivos:** ${files.length}\n\n> UI provável sem evidência deve ser justificada ou receber screenshot/registro antes do merge.\n\n## Arquivos alterados\n\n${list}\n\n## Descrição/evidências da PR\n\n${body}\n\n## Comparação\n\nConferir issue → diff → resultado real/tela → divergências.\n`;
+            let sha; try{const r=await github.rest.repos.getContent({owner,repo,path}); if(!Array.isArray(r.data)) sha=r.data.sha;}catch(e){if(e.status!==404) throw e;}
+            await github.rest.repos.createOrUpdateFileContents({owner,repo,path,message:`docs(review): sincroniza PR #${pr.number}`,content:Buffer.from(content).toString('base64'),sha});
