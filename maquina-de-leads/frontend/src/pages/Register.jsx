@@ -28,7 +28,7 @@ export default function Register() {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <h1>Máquina de Leads</h1>
+        <h1>Máquina de Leads (Code Nome - Equipe de Vendas)</h1>
         <p className="subtitle">Crie sua conta</p>
         {error && <div className="error-box">{error}</div>}
         <label>Nome</label>
