@@ -12,12 +12,13 @@
 - **Issue detectada:** SIM
 - **Mudança de UI provável:** SIM
 - **Evidência visual detectada:** NÃO
-- **Arquivos:** 10
+- **Arquivos:** 11
 
 > UI provável sem evidência deve ser justificada ou receber screenshot/registro antes do merge.
 
 ## Arquivos alterados
 
+- `.github/workflows/ci.yml` (+3/-0)
 - `docs/instagram-automatico.md` (+72/-0)
 - `maquina-de-leads/backend/.env.example` (+7/-0)
 - `maquina-de-leads/backend/src/controllers/instagramAutomationController.js` (+74/-0)
