@@ -2,7 +2,7 @@
 
 ## Metadados
 
-- **Estado:** Aberta
+- **Estado:** Merged
 - **Autor:** @acastilho
 - **Base/Head:** `main` ← `feature/menu-chatgpt-regulaai-v2`
 - **Fonte:** https://github.com/a-castilho/maquinadeleads/pull/6
