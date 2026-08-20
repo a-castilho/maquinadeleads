@@ -4,11 +4,11 @@
 
 ## Metadados
 
-- **Status:** open
+- **Status:** closed
 - **Autor:** @acastilho
 - **Responsáveis:** —
 - **Labels:** —
-- **Atualizada em:** 2026-08-20T01:39:04Z
+- **Atualizada em:** 2026-08-20T01:41:42Z
 - **Fonte:** https://github.com/a-castilho/maquinadeleads/issues/5
 
 ## Planejado / descrição
