@@ -32,3 +32,14 @@ O workflow `review-documentation.yml` gera `docs/reviews/pr-<numero>.md` com arq
 ## Definition of Done
 
 Só considerar concluído quando existir rastreabilidade, critérios verificados, testes, comparação do resultado real com o esperado, divergências registradas e documentação atualizada.
+
+<!-- COMPROMISSO-GERAL-A-CASTILHO -->
+
+---
+
+## Compromisso Geral
+
+**Sempre na melhor prática. No caminho do bem maior.**
+
+**Ir até o fim sem sair do caminho, seja ele qual for.**
+

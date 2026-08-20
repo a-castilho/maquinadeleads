@@ -70,3 +70,14 @@ A geração de texto e a prévia não dependem das credenciais abaixo. A publica
 - O usuário consegue alterar texto e data antes de publicar.
 - Sem credenciais de Instagram, a publicação é bloqueada com mensagem clara e sem falso positivo.
 - A versão anterior permanece preservada na branch `backup/pre-instagram-automatico-20260819`.
+
+<!-- COMPROMISSO-GERAL-A-CASTILHO -->
+
+---
+
+## Compromisso Geral
+
+**Sempre na melhor prática. No caminho do bem maior.**
+
+**Ir até o fim sem sair do caminho, seja ele qual for.**
+

@@ -13,3 +13,14 @@
 - [ ] comparação final entre comportamento esperado e tela implantada
 
 Os checks Vercel do commit de implementação estão verdes, mas isso não substitui evidência visual da nova tela.
+
+<!-- COMPROMISSO-GERAL-A-CASTILHO -->
+
+---
+
+## Compromisso Geral
+
+**Sempre na melhor prática. No caminho do bem maior.**
+
+**Ir até o fim sem sair do caminho, seja ele qual for.**
+

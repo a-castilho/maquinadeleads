@@ -266,3 +266,14 @@ Não presuma que um componente precisa ser criado antes de verificar se já exis
 Prefira alterações pequenas, testáveis e compatíveis com o código atual.
 
 Ao encontrar divergência entre este documento e a implementação real, preserve dados e funcionalidades existentes e escolha a migração de menor risco.
+
+<!-- COMPROMISSO-GERAL-A-CASTILHO -->
+
+---
+
+## Compromisso Geral
+
+**Sempre na melhor prática. No caminho do bem maior.**
+
+**Ir até o fim sem sair do caminho, seja ele qual for.**
+

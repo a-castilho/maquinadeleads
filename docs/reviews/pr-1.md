@@ -20,3 +20,14 @@ Motor nativo com fila/auditoria, descoberta e enriquecimento, scoring, funil, Ev
 
 ## Lacuna crítica de revisão
 A descrição detalha várias mudanças de produto e frontend, mas não contém evidência visual. Antes do merge, comparar o fluxo real Campanha → Estratégia → Leads → Preparação → Ativação, o funil, métricas e estados de execução com o escopo declarado. A própria PR afirma que o teste end-to-end real ainda é pendente, portanto não deve ser tratada como validada na tela.
+
+<!-- COMPROMISSO-GERAL-A-CASTILHO -->
+
+---
+
+## Compromisso Geral
+
+**Sempre na melhor prática. No caminho do bem maior.**
+
+**Ir até o fim sem sair do caminho, seja ele qual for.**
+

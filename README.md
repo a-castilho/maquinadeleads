@@ -72,3 +72,14 @@ Não versione arquivos `.env`, senhas, tokens ou outras credenciais reais. Em pr
 ## Documentação completa
 
 Consulte **[maquina-de-leads/README.md](./maquina-de-leads/README.md)** para detalhes de banco de dados, desenvolvimento sem Docker, segurança, CI e operação da aplicação.
+
+<!-- COMPROMISSO-GERAL-A-CASTILHO -->
+
+---
+
+## Compromisso Geral
+
+**Sempre na melhor prática. No caminho do bem maior.**
+
+**Ir até o fim sem sair do caminho, seja ele qual for.**
+
