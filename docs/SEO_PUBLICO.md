@@ -35,3 +35,14 @@ O conteúdo público deve explicar problema, benefício, conceito, caso de uso e
 **Sempre na melhor prática. No caminho do bem maior.**
 
 **Ir até o fim sem sair do caminho, seja ele qual for.**
+
+<!-- COMPROMISSO-GERAL-A-CASTILHO -->
+
+---
+
+## Compromisso Geral
+
+**Sempre na melhor prática. No caminho do bem maior.**
+
+**Ir até o fim sem sair do caminho, seja ele qual for.**
+
