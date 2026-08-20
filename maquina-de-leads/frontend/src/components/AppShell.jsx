@@ -11,7 +11,10 @@ const NAV_ITEMS = [
 export default function AppShell() {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('ml.sidebar.collapsed') === 'true');
+  const [collapsed, setCollapsed] = useState(() => {
+    const saved = localStorage.getItem('ml.sidebar.collapsed');
+    return saved === null ? true : saved === 'true';
+  });
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
