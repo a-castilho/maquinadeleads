@@ -32,3 +32,14 @@ Campanhas e nichos continuam acessíveis pelas telas de negócio e são renderiz
 A versão imediatamente anterior sobre a `main` mais recente foi preservada na branch:
 
 `backup/pre-menu-chatgpt-20260819-v2`
+
+<!-- COMPROMISSO-GERAL-A-CASTILHO -->
+
+---
+
+## Compromisso Geral
+
+**Sempre na melhor prática. No caminho do bem maior.**
+
+**Ir até o fim sem sair do caminho, seja ele qual for.**
+

@@ -37,3 +37,14 @@ Aplicar na Máquina de Leads um menu lateral recolhível, com comportamento equi
 ## Regra de revisão
 
 A PR deve comparar **planejado x implementado x tela/resultado real** e registrar evidência.
+
+<!-- COMPROMISSO-GERAL-A-CASTILHO -->
+
+---
+
+## Compromisso Geral
+
+**Sempre na melhor prática. No caminho do bem maior.**
+
+**Ir até o fim sem sair do caminho, seja ele qual for.**
+
