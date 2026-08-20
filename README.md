@@ -1,5 +1,7 @@
 # Máquina de Leads (Code Nome - Equipe de Vendas)
 
+**Atualizado em: 20/08/2026**
+
 Plataforma de prospecção autônoma orientada a campanhas, com descoberta, qualificação, deduplicação e acompanhamento de leads.
 
 A aplicação principal está em [`maquina-de-leads/`](./maquina-de-leads/) e possui documentação técnica detalhada em [`maquina-de-leads/README.md`](./maquina-de-leads/README.md).
