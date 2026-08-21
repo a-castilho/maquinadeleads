@@ -8,6 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const nichesRoutes = require('./routes/nichesRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
 const instagramAutomationRoutes = require('./routes/instagramAutomationRoutes');
+const leadDiscoveryRoutes = require('./routes/leadDiscoveryRoutes');
 const { requireAuth } = require('./middleware/auth');
 
 const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DATABASE_URL'];
@@ -33,6 +34,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/campaigns', requireAuth, campaignRoutes);
 app.use('/api/niches', requireAuth, nichesRoutes);
 app.use('/api/instagram-automation', requireAuth, instagramAutomationRoutes);
+app.use('/api/lead-discovery', requireAuth, leadDiscoveryRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));
 app.use((err, req, res, next) => {
