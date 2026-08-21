@@ -6,6 +6,7 @@ import CampaignDetail from './pages/CampaignDetail.jsx';
 import NicheDetail from './pages/NicheDetail.jsx';
 import Reports from './pages/Reports.jsx';
 import InstagramAutomation from './pages/InstagramAutomation.jsx';
+import LeadSearch from './pages/LeadSearch.jsx';
 import PrivateRoute from './components/PrivateRoute.jsx';
 import AppShell from './components/AppShell.jsx';
 
@@ -17,6 +18,7 @@ export default function App() {
 
       <Route element={<PrivateRoute><AppShell /></PrivateRoute>}>
         <Route index element={<Dashboard />} />
+        <Route path="buscar-clientes" element={<LeadSearch />} />
         <Route path="relatorios" element={<Reports />} />
         <Route path="instagram-automatico" element={<InstagramAutomation />} />
         <Route path="campanhas/:id" element={<CampaignDetail />} />
