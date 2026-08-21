@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Início', icon: '⌂', end: true },
+  { to: '/buscar-clientes', label: 'Buscar clientes', icon: '⌕' },
   { to: '/instagram-automatico', label: 'Instagram Automático', icon: '◎' },
   { to: '/relatorios', label: 'Relatórios', icon: '▤' },
 ];
