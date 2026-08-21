@@ -46,6 +46,9 @@ jobs:
       - run: node --check src/controllers/instagramAutomationController.js
       - run: node --check src/services/instagramAutomationService.js
       - run: node --check src/routes/instagramAutomationRoutes.js
+      - run: node --check src/controllers/leadDiscoveryController.js
+      - run: node --check src/services/gptLeadDiscoveryService.js
+      - run: node --check src/routes/leadDiscoveryRoutes.js
 
   frontend:
     runs-on: ubuntu-latest
